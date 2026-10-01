@@ -1,0 +1,17 @@
+app/schemas/prediction.py
+from typing import Dict
+
+from pydantic import BaseModel, Field
+
+
+class PredictionResult(BaseModel):
+    label: str = Field(..., description="Predicted class label")
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    all_scores: Dict[str, float] = Field(default_factory=dict)
+    needs_review: bool = Field(default=False)
+
+
+class PredictionResponse(BaseModel):
+    image_type: str = Field(..., description="The model type used: xray or skin")
+    status: str = Field(default="ok")
+    prediction: PredictionResult

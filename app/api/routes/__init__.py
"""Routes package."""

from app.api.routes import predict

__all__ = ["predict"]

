@@ -1,0 +1,7 @@
+app/api/__init__.py
+"""API package."""
+
+from app.api.routes import predict
+
+__all__ = ["predict"]
+

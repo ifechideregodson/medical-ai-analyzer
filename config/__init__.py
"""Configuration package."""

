@@ -1,0 +1,39 @@
+app/ui/streamlit_app.py
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import requests
+import streamlit as st
+
+API_BASE_URL = "http://localhost:8000"
+
+st.set_page_config(page_title="Medical AI Analyzer", layout="wide")
+
+st.title("Medical AI Analyzer")
+st.caption("Decision-support system for X-ray and skin image analysis")
+
+image_type = st.selectbox("Image type", ["xray", "skin"])
+uploaded_file = st.file_uploader("Upload image", type=["jpg", "jpeg", "png", "webp"])
+
+if uploaded_file is not None:
+    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type or "application/octet-stream")}
+    response = requests.post(
+        f"{API_BASE_URL}/api/v1/predict?image_type={image_type}",
+        files=files,
+        timeout=60,
+    )
+
+    if response.status_code == 200:
+        payload = response.json()
+        prediction = payload["prediction"]
+        st.image(uploaded_file, caption="Uploaded image", use_column_width=True)
+        st.success(f"Prediction: {prediction['label']}")
+        st.metric("Confidence", f"{prediction['confidence'] * 100:.2f}%")
+        st.write("Needs review:", prediction["needs_review"])
+        st.json(prediction["all_scores"])
+    else:
+        st.error(f"Prediction failed: {response.text}")
+else:
+    st.info("Upload an image to run inference.")
