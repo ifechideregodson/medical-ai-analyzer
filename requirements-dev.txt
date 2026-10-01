@@ -1,0 +1,17 @@
+-r requirements.txt
+
+# Code Quality
+black==24.10.0
+flake8==7.1.0
+isort==5.13.2
+pylint==3.2.3
+mypy==1.11.1
+
+# Development
+ipython==8.20.0
+jupyter==1.0.0
+ipdb==0.13.13
+
+# Documentation
+sphinx==8.0.2
+sphinx-rtd-theme==2.0.0
