@@ -13,13 +13,13 @@ API_BASE_URL = "http://localhost:8000"
 st.set_page_config(page_title="Medical AI Analyzer", layout="wide", initial_sidebar_state="expanded")
 
 st.title("🏥 Medical AI Analyzer")
-st.caption("Decision-support system for X-ray and skin image analysis")
+st.caption("Complete workflow: Train → Upload → Activate → Predict")
 
 # Sidebar navigation
 page = st.sidebar.radio(
     "Navigate",
-    ["Inference", "Training", "Jobs Status"],
-    icons=["camera", "graduation-cap", "hourglass"],
+    ["Inference", "Full Training Pipeline", "Jobs Status", "Model Registry"],
+    icons=["camera", "graduation-cap", "hourglass", "box"],
 )
 
 if page == "Inference":
@@ -70,12 +70,14 @@ if page == "Inference":
     else:
         st.info("📤 Upload an image to run inference.")
 
-elif page == "Training":
-    st.header("🎓 Model Training")
-    st.write("Create and train new models with your own datasets.")
+elif page == "Full Training Pipeline":
+    st.header("🎓 Complete Training Pipeline")
+    st.write("Step 1️⃣ → Create Job | Step 2️⃣ → Upload Images | Step 3️⃣ → Assign Labels | Step 4️⃣ → Train | Step 5️⃣ → Auto-Activate")
+    st.divider()
 
+    # Step 1: Create Training Job
+    st.subheader("Step 1️⃣: Create Training Job")
     with st.form("training_config"):
-        st.subheader("Training Configuration")
         col1, col2 = st.columns(2)
         with col1:
             dataset_name = st.text_input("Dataset Name", value="my_dataset_v1")
@@ -91,10 +93,16 @@ elif page == "Training":
         label_cols = st.columns(2)
         for i in range(num_classes):
             with label_cols[i % 2]:
-                label = st.text_input(f"Class {i + 1}", value=f"Class_{i + 1}")
+                label = st.text_input(f"Class {i + 1}", value=f"Class_{i + 1}", key=f"label_input_{i}")
                 labels.append(label)
 
-        create_job = st.form_submit_button("Create Training Job", use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            auto_register = st.checkbox("Auto-register model after training", value=True)
+        with col2:
+            activate_after = st.checkbox("Auto-activate model for inference", value=True)
+
+        create_job = st.form_submit_button("✅ Create Training Job", use_container_width=True)
 
     if create_job:
         with st.spinner("Creating training job..."):
@@ -108,25 +116,33 @@ elif page == "Training":
                         "train_size": 100,
                         "val_size": 20,
                         "labels": labels,
+                        "auto_register": auto_register,
+                        "activate_after_training": activate_after,
                     },
                     timeout=10,
                 )
                 if response.status_code == 200:
                     job_data = response.json()
                     job_id = job_data["job_id"]
-                    st.success(f"✅ Job created! ID: `{job_id}`")
+                    st.success(f"✅ Job created!")
                     st.session_state.current_job_id = job_id
+                    st.session_state.current_labels = labels
+                    st.session_state.current_num_classes = num_classes
                     st.session_state.show_upload = True
+                    st.info(f"📋 Job ID: `{job_id}`")
                 else:
                     st.error(f"Failed to create job: {response.text}")
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    # Upload training data
+    # Step 2 & 3: Upload and Label
     if "current_job_id" in st.session_state and st.session_state.get("show_upload"):
         st.divider()
-        st.subheader("Upload Training Images")
+        st.subheader("Step 2️⃣ & 3️⃣: Upload Images & Assign Labels")
         job_id = st.session_state.current_job_id
+        labels = st.session_state.current_labels
+        num_classes = st.session_state.current_num_classes
+
         st.info(f"Job ID: `{job_id}`")
 
         uploaded_files = st.file_uploader(
@@ -139,7 +155,7 @@ elif page == "Training":
         if uploaded_files:
             st.write(f"📊 {len(uploaded_files)} images selected")
 
-            if st.button("Upload Images", key="upload_button"):
+            if st.button("📤 Upload Images", key="upload_button", use_container_width=True):
                 with st.spinner("Uploading images..."):
                     files = [
                         ("files", (f.name, f.getvalue(), f.type))
@@ -153,26 +169,31 @@ elif page == "Training":
                     if response.status_code == 200:
                         st.success("✅ Images uploaded successfully!")
                         st.session_state.show_labels = True
+                        st.session_state.uploaded_file_count = len(uploaded_files)
                     else:
                         st.error(f"Upload failed: {response.text}")
 
             # Label assignment
             if st.session_state.get("show_labels"):
                 st.divider()
-                st.subheader("Assign Labels")
-                st.info("Assign a class label to each uploaded image")
+                st.subheader("Assign Labels to Images")
+                st.write(f"You have {st.session_state.uploaded_file_count} images to label.")
 
                 assigned_labels = []
                 for i in range(len(uploaded_files)):
                     col1, col2 = st.columns([3, 1])
                     with col1:
-                        st.write(f"📷 {uploaded_files[i].name}")
+                        st.write(f"{i+1}. 📷 `{uploaded_files[i].name}`")
                     with col2:
-                        label_idx = st.selectbox(f"Label for image {i + 1}", range(len(labels)), key=f"label_{i}")
-                        assigned_labels.append(label_idx)
+                        label_idx = st.selectbox(f"Class", labels, key=f"label_{i}")
+                        assigned_labels.append(labels.index(label_idx))
 
-                if st.button("Start Training", key="start_training", use_container_width=True):
-                    with st.spinner("Starting training..."):
+                st.divider()
+
+                # Step 4: Start Training
+                st.subheader("Step 4️⃣: Start Training")
+                if st.button("🚀 Start Training", key="start_training", use_container_width=True):
+                    with st.spinner("Starting training... This may take a few minutes."):
                         response = requests.post(
                             f"{API_BASE_URL}/api/v1/training/jobs/{job_id}/start",
                             json={
@@ -186,12 +207,13 @@ elif page == "Training":
                         if response.status_code == 200:
                             st.success("✅ Training started!")
                             st.session_state.training_job_id = job_id
+                            st.balloons()
                         else:
                             st.error(f"Failed to start training: {response.text}")
 
 elif page == "Jobs Status":
     st.header("📋 Training Jobs Status")
-    st.write("Monitor the progress of your training jobs.")
+    st.write("Monitor training progress and model registration.")
 
     if st.button("🔄 Refresh", use_container_width=True):
         st.rerun()
@@ -203,12 +225,12 @@ elif page == "Jobs Status":
             if not jobs:
                 st.info("No training jobs yet.")
             else:
-                for job in jobs:
+                for job in sorted(jobs, key=lambda x: x['created_at'], reverse=True):
                     with st.container(border=True):
-                        col1, col2, col3 = st.columns([2, 1, 1])
+                        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
                         with col1:
-                            st.write(f"**{job['dataset_name']}** ({job['image_type']})")
-                            st.caption(f"Job ID: `{job['job_id']}`")
+                            st.write(f"**{job['dataset_name']}** ({job['image_type'].upper()})")
+                            st.caption(f"Job: `{job['job_id'][:8]}...`")
                         with col2:
                             status_color = {
                                 "pending": "⏳",
@@ -218,7 +240,15 @@ elif page == "Jobs Status":
                             }
                             st.write(f"{status_color.get(job['status'], '❓')} {job['status'].upper()}")
                         with col3:
-                            st.metric("Progress", f"{job['progress']:.1f}%")
+                            if job['model_registered']:
+                                st.success("✅ Registered")
+                            else:
+                                st.write("-")
+                        with col4:
+                            if job['model_activated']:
+                                st.success("✅ Active")
+                            else:
+                                st.write("-")
 
                         if job["status"] == "running":
                             st.progress(job["progress"] / 100)
@@ -233,10 +263,95 @@ elif page == "Jobs Status":
                                 if st.button("Refresh", key=f"refresh_{job['job_id']}"):
                                     st.rerun()
                         elif job["status"] == "completed":
-                            st.success(f"✅ Completed with {job['accuracy']:.2f}% accuracy")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.success(f"✅ Completed")
+                                if job["accuracy"]:
+                                    st.metric("Final Accuracy", f"{job['accuracy']:.2f}%")
+                            with col2:
+                                if job['model_registered']:
+                                    st.info(f"📦 Model: `{job['model_name']}`")
+                                    if job['model_activated']:
+                                        st.success("✅ Activated for inference")
                         elif job["status"] == "failed":
                             st.error(f"❌ Failed: {job['error_message']}")
         else:
             st.error(f"Failed to fetch jobs: {response.text}")
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+elif page == "Model Registry":
+    st.header("📦 Registered Models")
+    st.write("View all trained and registered models in your system.")
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        st.write("")
+    with col2:
+        filter_type = st.selectbox("Filter by type", ["All", "xray", "skin"])
+    with col3:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.rerun()
+
+    try:
+        response = requests.get(f"{API_BASE_URL}/api/v1/models/list", timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            models = result["models"]
+
+            # Filter
+            if filter_type != "All":
+                models = [m for m in models if m["image_type"] == filter_type]
+
+            if not models:
+                st.info("No models registered yet. Complete a training job to register a model.")
+            else:
+                for model in models:
+                    with st.container(border=True):
+                        col1, col2, col3 = st.columns([2, 1, 1])
+                        with col1:
+                            st.write(f"**{model['model_name']}**")
+                            st.caption(f"Type: `{model['image_type']}` | {model['created_at'][:10]}")
+                            if model["description"]:
+                                st.write(f"📝 {model['description']}")
+                        with col2:
+                            if model["is_active"]:
+                                st.success("✅ ACTIVE")
+                            else:
+                                st.write("⭕ Inactive")
+                            if model["accuracy"] is not None:
+                                st.metric("Accuracy", f"{model['accuracy']:.2f}%")
+                        with col3:
+                            btn_col1, btn_col2 = st.columns(2)
+                            with btn_col1:
+                                if not model["is_active"]:
+                                    if st.button("Activate", key=f"activate_{model['model_name']}"):
+                                        resp = requests.post(
+                                            f"{API_BASE_URL}/api/v1/models/activate",
+                                            json={"model_name": model["model_name"]},
+                                            timeout=10,
+                                        )
+                                        if resp.status_code == 200:
+                                            st.success("✅ Activated")
+                                            st.rerun()
+                                        else:
+                                            st.error("Failed")
+                            with btn_col2:
+                                if st.button("Delete", key=f"delete_{model['model_name']}"):
+                                    resp = requests.delete(
+                                        f"{API_BASE_URL}/api/v1/models/{model['model_name']}",
+                                        timeout=10,
+                                    )
+                                    if resp.status_code == 200:
+                                        st.success("✅ Deleted")
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed")
+
+                        # Show labels
+                        with st.expander("🌠 View labels"):
+                            st.write(model["labels"])
+        else:
+            st.error(f"Failed to fetch models: {response.text}")
     except Exception as e:
         st.error(f"Error: {e}")

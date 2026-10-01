@@ -9,6 +9,8 @@ class TrainingDataset(BaseModel):
     train_size: int = Field(..., ge=10, description="Number of training images")
     val_size: int = Field(..., ge=5, description="Number of validation images")
     labels: list[str] = Field(..., description="List of class labels")
+    auto_register: bool = Field(default=True, description="Auto-register model after training")
+    activate_after_training: bool = Field(default=True, description="Activate model after training")
 
 
 class TrainingJobResponse(BaseModel):
@@ -22,6 +24,7 @@ class TrainingJobResponse(BaseModel):
     loss: Optional[float] = None
     accuracy: Optional[float] = None
     message: str
+    model_name: Optional[str] = None
 
 
 class TrainingJobStatus(BaseModel):
@@ -35,3 +38,6 @@ class TrainingJobStatus(BaseModel):
     error_message: Optional[str] = None
     created_at: str
     updated_at: str
+    model_name: Optional[str] = None
+    model_registered: bool = False
+    model_activated: bool = False

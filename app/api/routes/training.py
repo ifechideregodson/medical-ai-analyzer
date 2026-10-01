@@ -29,6 +29,8 @@ async def create_training_job(config: TrainingDataset) -> dict:
         image_type=config.image_type,
         num_classes=config.num_classes,
         labels=config.labels,
+        auto_register=config.auto_register,
+        activate_after_training=config.activate_after_training,
     )
 
     return {
@@ -40,6 +42,7 @@ async def create_training_job(config: TrainingDataset) -> dict:
         "epoch": job.epoch,
         "total_epochs": job.total_epochs,
         "message": f"Job {job.job_id} created",
+        "model_name": job.model_name,
     }
 
 
@@ -82,7 +85,7 @@ async def upload_training_data(
 
     saved_files = []
     for file in files:
-        if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        if file.content_type not in {"image/jpeg", "image/png", "image/webp"} and not file.filename.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
 
         try:
