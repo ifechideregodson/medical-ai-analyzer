@@ -1,0 +1,58 @@
+name: Build medical research datasets
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Dataset to download"
+        required: true
+        default: pneumonia
+        type: choice
+        options:
+          - pneumonia
+          - skin
+          - both
+
+jobs:
+  build-dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dataset tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install medmnist==3.0.2 Pillow==10.4.0 numpy==2.1.2
+
+      - name: Download PneumoniaMNIST
+        if: inputs.dataset == 'pneumonia' || inputs.dataset == 'both'
+        run: |
+          python training/download_medmnist.py             --dataset pneumonia             --output data/pneumonia_mnist
+
+      - name: Download DermaMNIST
+        if: inputs.dataset == 'skin' || inputs.dataset == 'both'
+        run: |
+          python training/download_medmnist.py             --dataset skin             --output data/dermamnist
+
+      - name: Package dataset
+        run: |
+          mkdir -p artifacts
+          if [ -d data/pneumonia_mnist ]; then
+            tar -czf artifacts/pneumonia_mnist.tar.gz data/pneumonia_mnist
+          fi
+          if [ -d data/dermamnist ]; then
+            tar -czf artifacts/dermamnist.tar.gz data/dermamnist
+          fi
+
+      - name: Upload dataset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medical-research-datasets
+          path: artifacts/
+          retention-days: 14

@@ -16,6 +16,7 @@ pandas==2.2.5
 scikit-learn==1.5.2
 opencv-python-headless==4.10.0
 Pillow==10.4.0
+medmnist==3.0.2
 
 # Database
 SQLAlchemy==2.0.35
