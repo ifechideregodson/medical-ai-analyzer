@@ -1,0 +1,76 @@
+name: Train medical AI model
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Model to train"
+        required: true
+        default: pneumonia
+        type: choice
+        options:
+          - pneumonia
+          - skin
+          - both
+      epochs:
+        description: "Training epochs"
+        required: true
+        default: "3"
+        type: string
+      batch_size:
+        description: "Batch size"
+        required: true
+        default: "16"
+        type: string
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install             torch==2.4.1             torchvision==0.19.1             medmnist==3.0.2             numpy==2.1.2             Pillow==10.4.0             scikit-learn==1.5.2
+
+      - name: Download and train PneumoniaMNIST
+        if: inputs.dataset == 'pneumonia' || inputs.dataset == 'both'
+        run: |
+          python training/download_medmnist.py             --dataset pneumonia             --output data/pneumonia_mnist
+
+          python training/train_classifier.py             --data data/pneumonia_mnist             --output models/pneumonia_v1             --epochs "${{ inputs.epochs }}"             --batch-size "${{ inputs.batch_size }}"             --split-mode official
+
+      - name: Download and train DermaMNIST
+        if: inputs.dataset == 'skin' || inputs.dataset == 'both'
+        run: |
+          python training/download_medmnist.py             --dataset skin             --output data/dermamnist
+
+          python training/train_classifier.py             --data data/dermamnist             --output models/derma_v1             --epochs "${{ inputs.epochs }}"             --batch-size "${{ inputs.batch_size }}"             --split-mode official
+
+      - name: Package trained models
+        run: |
+          mkdir -p artifacts
+
+          if [ -d models/pneumonia_v1 ]; then
+            tar -czf artifacts/pneumonia_v1.tar.gz models/pneumonia_v1
+          fi
+
+          if [ -d models/derma_v1 ]; then
+            tar -czf artifacts/derma_v1.tar.gz models/derma_v1
+          fi
+
+      - name: Upload trained model artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: trained-medical-models
+          path: artifacts/
+          retention-days: 14
