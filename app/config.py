@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     allowed_origins: str = "http://localhost:3000,http://localhost:8501"
     log_level: str = "INFO"
+    api_key_admin_secret: str = ""
+    api_key_prefix: str = "medai"
 
     @property
     def allowed_origin_list(self) -> list[str]:
