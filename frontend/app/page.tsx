@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText,
+  Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText, KeyRound,
   Image as ImageIcon, LayoutDashboard, Microscope, Settings, ShieldCheck,
   Stethoscope, Upload, UserRound, XCircle
 } from "lucide-react";
@@ -74,7 +74,7 @@ export default function Home() {
         <div className="navLabel">WORKSPACE</div>
         {[
           ["Dashboard", LayoutDashboard], ["Analyze Image", ImageIcon], ["Reports", FileText],
-          ["Research", Microscope], ["Models", Activity], ["Analytics", BarChart3]
+          ["Research", Microscope], ["Models", Activity], ["Analytics", BarChart3], ["API Keys", KeyRound]
         ].map(([name, Icon]) => (
           <button key={name as string} className={`navItem ${page === name ? "active" : ""}`} onClick={() => setPage(name as string)}>
             <Icon size={18}/><span>{name as string}</span>
@@ -125,7 +125,8 @@ export default function Home() {
             </div>
           </section>
         )}
-        {page !== "Dashboard" && page !== "Analyze Image" && <ComingSoon title={page} />}
+        {page === "API Keys" && <APIKeys />}
+        {page !== "Dashboard" && page !== "Analyze Image" && page !== "API Keys" && <ComingSoon title={page} />}
       </section>
     </main>
   );
@@ -140,3 +141,69 @@ function Dashboard({onAnalyze}: {onAnalyze: () => void}) {
 }
 function Stat({icon: Icon,label,value,note}:{icon: LucideIcon,label:string,value:string,note:string}) { return <div className="stat"><Icon size={20}/><span>{label}</span><b>{value}</b><small>{note}</small></div>; }
 function ComingSoon({title}:{title:string}) { return <div className="panel coming"><Brain size={42}/><h2>{title}</h2><p>This workspace is being connected to the same backend and trained-model registry.</p></div>; }
+
+
+function APIKeys() {
+  const [adminKey, setAdminKey] = useState("");
+  const [name, setName] = useState("");
+  const [owner, setOwner] = useState("");
+  const [keys, setKeys] = useState<Array<{id:number;name:string;owner:string;key_prefix:string;created_at:string;is_active:boolean}>>([]);
+  const [newKey, setNewKey] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function loadKeys() {
+    setBusy(true); setMessage("");
+    try {
+      const r = await fetch(`${API_URL}/api/v1/api-keys`, {headers: {"X-Admin-Key": adminKey}});
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail ?? "Unable to load API keys");
+      setKeys(data);
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to load API keys"); }
+    finally { setBusy(false); }
+  }
+
+  async function createKey() {
+    setBusy(true); setMessage(""); setNewKey("");
+    try {
+      const r = await fetch(`${API_URL}/api/v1/api-keys`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json", "X-Admin-Key": adminKey},
+        body: JSON.stringify({name, owner})
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail ?? "Unable to create API key");
+      setNewKey(data.api_key);
+      setName(""); setOwner("");
+      await loadKeys();
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to create API key"); }
+    finally { setBusy(false); }
+  }
+
+  async function revoke(id: number) {
+    if (!confirm("Revoke this API key? Applications using it will stop authenticating.")) return;
+    const r = await fetch(`${API_URL}/api/v1/api-keys/${id}`, {method:"DELETE", headers:{"X-Admin-Key":adminKey}});
+    if (r.ok) await loadKeys(); else setMessage((await r.json()).detail ?? "Unable to revoke key");
+  }
+
+  return <section>
+    <div className="hero"><div><span className="pill">DEVELOPER ACCESS</span><h2>API keys</h2><p>Issue keys for hospitals, applications and approved developers that need to connect to the MedAI API.</p></div><KeyRound size={72}/></div>
+    <div className="analysisGrid">
+      <div className="panel">
+        <div className="panelHead"><div><b>Administrator access</b><span>The admin secret is never stored in the browser.</span></div><ShieldCheck size={20}/></div>
+        <input className="textInput" type="password" placeholder="Admin API-key secret" value={adminKey} onChange={e=>setAdminKey(e.target.value)} />
+        <button className="secondary full" onClick={loadKeys} disabled={!adminKey || busy}>Load API keys</button>
+        <div className="panelHead"><div><b>Create API key</b><span>The full key is shown only once.</span></div></div>
+        <input className="textInput" placeholder="Application / organization name" value={name} onChange={e=>setName(e.target.value)} />
+        <input className="textInput" placeholder="Owner email or identifier" value={owner} onChange={e=>setOwner(e.target.value)} />
+        <button className="primary full" onClick={createKey} disabled={!adminKey || !name || !owner || busy}>Generate API key</button>
+        {newKey && <div className="notice"><b>Copy this key now:</b><br/><code>{newKey}</code><br/>It will not be displayed again.</div>}
+        {message && <div className="error">{message}</div>}
+      </div>
+      <div className="panel">
+        <div className="panelHead"><div><b>Issued keys</b><span>Only prefixes are displayed after creation.</span></div><KeyRound size={20}/></div>
+        {!keys.length ? <div className="empty"><KeyRound size={34}/><b>No keys loaded</b><span>Enter the administrator secret and load the key list.</span></div> : keys.map(k=><div className="step" key={k.id}><span>{k.is_active ? "✓" : "×"}</span><div><b>{k.name}</b><small>{k.owner} · {k.key_prefix} · {k.is_active ? "Active" : "Revoked"}</small></div>{k.is_active && <button className="secondary" onClick={()=>revoke(k.id)}>Revoke</button>}</div>)}
+      </div>
+    </div>
+  </section>;
+}

@@ -60,6 +60,8 @@ services:
         value: "0.75"
       - key: LOG_LEVEL
         value: INFO
+      - key: API_KEY_ADMIN_SECRET
+        generateValue: true
       - key: XRAY_MODEL_PATH
         value: models/xray_model.pth
       - key: SKIN_MODEL_PATH
