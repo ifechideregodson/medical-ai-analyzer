@@ -5,7 +5,8 @@ import {
   Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText, KeyRound,
   Image as ImageIcon, LayoutDashboard, Microscope, Settings, ShieldCheck,
   Stethoscope, Upload, UserRound, XCircle, Users, History, RefreshCw, Save, LogOut, ClipboardCheck
-} from "lucide-react";\nimport type { LucideIcon } from "lucide-react";
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type Mode = "xray" | "skin";
 type Result = {
@@ -56,10 +57,16 @@ export default function Home() {
     try {
       const form = new FormData();
       form.append("file", file);
-      form.append("image_type", mode);\n      const response = await fetch("/api/analyze", { method: "POST", body: form });
+      form.append("image_type", mode);
+      const response = await fetch("/api/analyze", { method: "POST", body: form });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? "Analysis failed");
-      const finalResult = data.result ?? data.prediction; setResult(finalResult);\n      const admin = sessionStorage.getItem("medai_admin_secret");\n      if (admin) {\n        const saved = await fetch(`${API_URL}/api/v1/clinical/analyses`, { method:"POST", headers:{"Content-Type":"application/json","X-Admin-Key":admin}, body:JSON.stringify({image_type:mode,source_filename:file.name,finding:finalResult.label,confidence:finalResult.confidence,needs_review:finalResult.needs_review,model_name:finalResult.model_name,model_source:finalResult.model_source,research_status:finalResult.research_status ?? "research_only_not_clinically_validated"}) });\n        if (!saved.ok) { const sd = await saved.json(); setError(sd.detail ?? "AI result was returned but could not be saved"); }\n      }
+      const finalResult = data.result ?? data.prediction; setResult(finalResult);
+      const admin = sessionStorage.getItem("medai_admin_secret");
+      if (admin) {
+        const saved = await fetch(`${API_URL}/api/v1/clinical/analyses`, { method:"POST", headers:{"Content-Type":"application/json","X-Admin-Key":admin}, body:JSON.stringify({image_type:mode,source_filename:file.name,finding:finalResult.label,confidence:finalResult.confidence,needs_review:finalResult.needs_review,model_name:finalResult.model_name,model_source:finalResult.model_source,research_status:finalResult.research_status ?? "research_only_not_clinically_validated"}) });
+        if (!saved.ok) { const sd = await saved.json(); setError(sd.detail ?? "AI result was returned but could not be saved"); }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to reach the analysis service");
     } finally {
@@ -274,11 +281,17 @@ function APIDocs() {
       </div>
       <div className="panel">
         <div className="panelHead"><div><b>POST /api/v1/predict</b><span>Analyze an X-ray or skin image.</span></div><Brain size={20}/></div>
-        <pre className="codeBlock"><code>{`curl -X POST \\\n  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=xray" \\\n  -H "X-API-Key: medai_your_secret_key" \\\n  -F "file=@xray.jpg"`}</code></pre>
+        <pre className="codeBlock"><code>{`curl -X POST \\
+  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=xray" \\
+  -H "X-API-Key: medai_your_secret_key" \\
+  -F "file=@xray.jpg"`}</code></pre>
       </div>
       <div className="panel">
         <div className="panelHead"><div><b>Skin example</b><span>Use image_type=skin for dermatology images.</span></div></div>
-        <pre className="codeBlock"><code>{`curl -X POST \\\n  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=skin" \\\n  -H "X-API-Key: medai_your_secret_key" \\\n  -F "file=@skin.jpg"`}</code></pre>
+        <pre className="codeBlock"><code>{`curl -X POST \\
+  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=skin" \\
+  -H "X-API-Key: medai_your_secret_key" \\
+  -F "file=@skin.jpg"`}</code></pre>
       </div>
       <div className="panel">
         <div className="panelHead"><div><b>Response</b><span>Finding, scores, model provenance and review status.</span></div></div>
@@ -332,7 +345,8 @@ function ReportsWorkspace() {
   const load=async()=>{const [rr,ar]=await Promise.all([clinicalRequest("/api/v1/clinical/reports"),clinicalRequest("/api/v1/clinical/analyses")]);const rd=await rr.json(),ad=await ar.json();if(rr.ok)setReports(rd);if(ar.ok)setAnalyses(ad)};
   useEffect(()=>{load()},[]);
   const create=async()=>{const r=await clinicalRequest("/api/v1/clinical/reports",{method:"POST",body:JSON.stringify({analysis_id:Number(analysisId),title,findings,impression,author})});const d=await r.json();if(!r.ok){setMsg(d.detail||"Unable to create report");return}setTitle("");setFindings("");setImpression("");load()};
-  const sign=async(id:number)=>{const signer=window.prompt("Clinician name for signature");if(!signer)return;const r=await clinicalRequest("/api/v1/clinical/reports/"+id+"/sign",{method:"POST",body:JSON.stringify({signer})});if(!r.ok){const d=await r.json();setMsg(d.detail||"Unable to sign report")}load()};\n  const review=async(id:number)=>{const reviewer=window.prompt("Clinician reviewer name");if(!reviewer)return;const note=window.prompt("Review note (optional)")||"";const r=await clinicalRequest("/api/v1/clinical/analyses/"+id+"/review",{method:"POST",body:JSON.stringify({status:"reviewed",reviewer,note})});if(!r.ok){const d=await r.json();setMsg(d.detail||"Unable to review analysis")}load()};
+  const sign=async(id:number)=>{const signer=window.prompt("Clinician name for signature");if(!signer)return;const r=await clinicalRequest("/api/v1/clinical/reports/"+id+"/sign",{method:"POST",body:JSON.stringify({signer})});if(!r.ok){const d=await r.json();setMsg(d.detail||"Unable to sign report")}load()};
+  const review=async(id:number)=>{const reviewer=window.prompt("Clinician reviewer name");if(!reviewer)return;const note=window.prompt("Review note (optional)")||"";const r=await clinicalRequest("/api/v1/clinical/analyses/"+id+"/review",{method:"POST",body:JSON.stringify({status:"reviewed",reviewer,note})});if(!r.ok){const d=await r.json();setMsg(d.detail||"Unable to review analysis")}load()};
   return <AdminGate><section><div className="hero"><span className="pill">REPORTING</span><h2>Clinical reports are persistent and signable.</h2><p>Draft reports from stored analyses, then sign them. Signed reports are immutable.</p></div><div className="analysisGrid"><div className="panel"><div className="panelHead"><div><b>Create report</b><span>Every report links to an analysis.</span></div><FileText size={20}/></div><div className="reviewQueue"><b>Clinician review queue</b><small>AI findings awaiting human review</small>{analyses.filter(a=>a.status==="pending_review").slice(0,5).map(a=><div className="reviewQueueRow" key={a.id}><div><b>Analysis #{a.id}</b><span>{a.image_type} · {a.finding} · {Math.round(a.confidence*100)}%</span></div><button className="secondary" onClick={()=>review(a.id)}>Mark reviewed</button></div>)}</div><select className="textInput" value={analysisId} onChange={e=>setAnalysisId(e.target.value)}><option value="">Select analysis</option>{analyses.map(a=><option key={a.id} value={a.id}>#{a.id} · {a.image_type} · {a.finding}</option>)}</select><input className="textInput" placeholder="Report title" value={title} onChange={e=>setTitle(e.target.value)}/><input className="textInput" placeholder="Author" value={author} onChange={e=>setAuthor(e.target.value)}/><textarea className="textInput" placeholder="Findings" value={findings} onChange={e=>setFindings(e.target.value)}/><textarea className="textInput" placeholder="Impression" value={impression} onChange={e=>setImpression(e.target.value)}/><button className="primary full" disabled={!analysisId||!title||!author||!findings||!impression} onClick={create}><Save size={16}/>Save draft report</button>{msg&&<div className="error">{msg}</div>}</div><div className="panel"><div className="panelHead"><div><b>Reports</b><span>{reports.length} saved</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{reports.length===0?<div className="empty"><FileText size={34}/><b>No reports</b><span>Create a report after an analysis.</span></div>:reports.map(r=><div className="reportCard" key={r.id}><div className="reportHead"><div><b>{r.title}</b><small>Report #{r.id} · Analysis #{r.analysis_id} · {r.author}</small></div><span className={"badge "+r.status}>{r.status}</span></div><p><b>Findings:</b> {r.findings}</p><p><b>Impression:</b> {r.impression}</p>{r.status==="draft"&&<button className="secondary" onClick={()=>sign(r.id)}>Sign report</button>}{r.status==="signed"&&<small>Signed by {r.signed_by} on {new Date(r.signed_at).toLocaleString()}</small>}</div>)}</div></div></section></AdminGate>;
 }
 
