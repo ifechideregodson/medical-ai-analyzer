@@ -61,12 +61,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="model-v${{ github.run_number }}"
-          gh release create "$TAG" --title "Medical AI research models ${{ github.run_number }}" --notes "Research model artifacts from training run ${{ github.run_id }}. These models are not clinically validated." --latest
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; reusing it."
+          else
+            gh release create "$TAG" --title "Medical AI research models ${{ github.run_number }}" --notes "Research model artifacts from training run ${{ github.run_id }}. These models are not clinically validated." --latest
+          fi
           if [ -f models/pneumonia_v1/model.pth ]; then
-            gh release upload "$TAG" models/pneumonia_v1/model.pth#pneumonia-model.pth models/pneumonia_v1/labels.json#pneumonia-labels.json models/pneumonia_v1/metrics.json#pneumonia-metrics.json
+            gh release upload "$TAG" --clobber models/pneumonia_v1/model.pth#pneumonia-model.pth models/pneumonia_v1/labels.json#pneumonia-labels.json models/pneumonia_v1/metrics.json#pneumonia-metrics.json
           fi
           if [ -f models/derma_v1/model.pth ]; then
-            gh release upload "$TAG" models/derma_v1/model.pth#skin-model.pth models/derma_v1/labels.json#skin-labels.json models/derma_v1/metrics.json#skin-metrics.json
+            gh release upload "$TAG" --clobber models/derma_v1/model.pth#skin-model.pth models/derma_v1/labels.json#skin-labels.json models/derma_v1/metrics.json#skin-metrics.json
           fi
 
       - name: Package trained model artifacts
