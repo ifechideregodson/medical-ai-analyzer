@@ -31,3 +31,8 @@ code{word-break:break-all}
 .auditRow b{font-size:10px}.auditRow small{color:#7c8797;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:850px){.metricsGrid{grid-template-columns:1fr 1fr}.auditRow{grid-template-columns:1fr 1fr}.auditRow small{grid-column:1/-1}}
 @media(max-width:600px){.metricsGrid{grid-template-columns:1fr}.modelRow{align-items:flex-start;flex-wrap:wrap}.modelRow>div{min-width:65%}}
+
+.reviewQueue{background:#f8fafc;border:1px solid #e5e9f0;border-radius:10px;padding:12px;margin-bottom:12px}
+.reviewQueue>b,.reviewQueue>small{display:block}.reviewQueue>b{font-size:11px}.reviewQueue>small{font-size:9px;color:#8792a3;margin-top:2px}
+.reviewQueueRow{display:flex;align-items:center;gap:8px;border-top:1px solid #e5e9f0;padding:9px 0;margin-top:8px}
+.reviewQueueRow>div{flex:1}.reviewQueueRow b,.reviewQueueRow span{display:block}.reviewQueueRow b{font-size:10px}.reviewQueueRow span{font-size:9px;color:#7b8798;margin-top:2px}
