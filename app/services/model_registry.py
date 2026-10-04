@@ -112,6 +112,11 @@ class ModelRegistry:
         metadata["is_active"] = active.get(metadata["image_type"]) == metadata["model_name"]
         return metadata
 
+    def get_active_model(self, image_type: str) -> Optional[dict[str, Any]]:
+        active = self._load_active_models()
+        model_name = active.get(image_type)
+        return self.get_model(model_name) if model_name else None
+
     def activate_model(self, model_name: str) -> dict[str, Any]:
         metadata = self.get_model(model_name)
         active = self._load_active_models()
