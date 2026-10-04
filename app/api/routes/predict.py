@@ -1,8 +1,10 @@
 from io import BytesIO
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from PIL import Image
 
+from app.api.dependencies import require_api_key
+from app.services.api_keys import check_rate_limit
 from app.services.inference import InferenceService
 
 router = APIRouter(prefix="/api/v1/predict", tags=["prediction"])
@@ -10,7 +12,12 @@ inference_service = InferenceService()
 
 
 @router.post("")
-async def predict(image_type: str, file: UploadFile = File(...)) -> dict:
+async def predict(
+    image_type: str,
+    file: UploadFile = File(...),
+    api_key: str = Depends(require_api_key),
+) -> dict:
+    check_rate_limit(api_key)
     if image_type not in {"xray", "skin"}:
         raise HTTPException(status_code=400, detail="image_type must be 'xray' or 'skin'")
     if not file.filename:
