@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL Database Service
   - type: pserv
     name: medical-ai-postgres
     runtime: postgresql
@@ -15,7 +14,6 @@ services:
       - key: POSTGRES_PASSWORD
         generateValue: true
 
-  # Redis Cache Service
   - type: redis
     name: medical-ai-redis
     plan: free
@@ -23,7 +21,6 @@ services:
     ipAllowList: []
     maxmemoryPolicy: allkeys-lru
 
-  # FastAPI Web Service
   - type: web
     name: medical-ai-api
     runtime: python
@@ -37,7 +34,6 @@ services:
     healthCheckInterval: 30
     autoDeploy: true
     maxInstances: 1
-    
     envVars:
       - key: ENV
         value: production
@@ -68,16 +64,21 @@ services:
         value: models/xray_model.pth
       - key: SKIN_MODEL_PATH
         value: models/skin_model.pth
+      - key: XRAY_MODEL_URL
+        value: https://github.com/ifechideregodson/medical-ai-analyzer/releases/latest/download/pneumonia-model.pth
+      - key: SKIN_MODEL_URL
+        value: https://github.com/ifechideregodson/medical-ai-analyzer/releases/latest/download/skin-model.pth
+      - key: XRAY_MODEL_LABELS
+        value: '["normal", "pneumonia"]'
+      - key: SKIN_MODEL_LABELS
+        value: '["actinic keratoses", "basal cell carcinoma", "benign keratosis-like lesions", "dermatofibroma", "melanoma", "melanocytic nevi", "vascular lesions"]'
+      - key: MODEL_DOWNLOAD_TIMEOUT
+        value: "300"
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
         value: https://medical-ai-api.onrender.com,https://medical-ai-web.onrender.com,http://localhost:3000,http://localhost:8501
 
-    routes:
-      - path: /
-        matchType: prefix
-
-  # Next.js web application
   - type: web
     name: medical-ai-web
     runtime: node
