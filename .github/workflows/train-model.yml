@@ -23,11 +23,13 @@ on:
         default: "16"
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   train:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -40,33 +42,38 @@ jobs:
       - name: Install training dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install             torch==2.4.1             torchvision==0.19.1             medmnist==3.0.2             numpy==2.1.2             Pillow==10.4.0             scikit-learn==1.5.2
+          pip install torch==2.4.1 torchvision==0.19.1 medmnist==3.0.2 numpy==2.1.2 Pillow==10.4.0 scikit-learn==1.5.2
 
       - name: Download and train PneumoniaMNIST
         if: inputs.dataset == 'pneumonia' || inputs.dataset == 'both'
         run: |
-          python training/download_medmnist.py             --dataset pneumonia             --output data/pneumonia_mnist
-
-          python training/train_classifier.py             --data data/pneumonia_mnist             --output models/pneumonia_v1             --epochs "${{ inputs.epochs }}"             --batch-size "${{ inputs.batch_size }}"             --split-mode official
+          python training/download_medmnist.py --dataset pneumonia --output data/pneumonia_mnist
+          python training/train_classifier.py --data data/pneumonia_mnist --output models/pneumonia_v1 --epochs "${{ inputs.epochs }}" --batch-size "${{ inputs.batch_size }}" --split-mode official
 
       - name: Download and train DermaMNIST
         if: inputs.dataset == 'skin' || inputs.dataset == 'both'
         run: |
-          python training/download_medmnist.py             --dataset skin             --output data/dermamnist
+          python training/download_medmnist.py --dataset skin --output data/dermamnist
+          python training/train_classifier.py --data data/dermamnist --output models/derma_v1 --epochs "${{ inputs.epochs }}" --batch-size "${{ inputs.batch_size }}" --split-mode official
 
-          python training/train_classifier.py             --data data/dermamnist             --output models/derma_v1             --epochs "${{ inputs.epochs }}"             --batch-size "${{ inputs.batch_size }}"             --split-mode official
+      - name: Publish trained models as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="model-v${{ github.run_number }}"
+          gh release create "$TAG" --title "Medical AI research models ${{ github.run_number }}" --notes "Research model artifacts from training run ${{ github.run_id }}. These models are not clinically validated." --latest
+          if [ -f models/pneumonia_v1/model.pth ]; then
+            gh release upload "$TAG" models/pneumonia_v1/model.pth#pneumonia-model.pth models/pneumonia_v1/labels.json#pneumonia-labels.json models/pneumonia_v1/metrics.json#pneumonia-metrics.json
+          fi
+          if [ -f models/derma_v1/model.pth ]; then
+            gh release upload "$TAG" models/derma_v1/model.pth#skin-model.pth models/derma_v1/labels.json#skin-labels.json models/derma_v1/metrics.json#skin-metrics.json
+          fi
 
-      - name: Package trained models
+      - name: Package trained model artifacts
         run: |
           mkdir -p artifacts
-
-          if [ -d models/pneumonia_v1 ]; then
-            tar -czf artifacts/pneumonia_v1.tar.gz models/pneumonia_v1
-          fi
-
-          if [ -d models/derma_v1 ]; then
-            tar -czf artifacts/derma_v1.tar.gz models/derma_v1
-          fi
+          if [ -d models/pneumonia_v1 ]; then tar -czf artifacts/pneumonia_v1.tar.gz models/pneumonia_v1; fi
+          if [ -d models/derma_v1 ]; then tar -czf artifacts/derma_v1.tar.gz models/derma_v1; fi
 
       - name: Upload trained model artifacts
         uses: actions/upload-artifact@v7
