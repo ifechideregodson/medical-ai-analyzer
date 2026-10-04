@@ -1,12 +1,17 @@
 name: Build medical research datasets
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-datasets.yml"
   workflow_dispatch:
     inputs:
       dataset:
         description: "Dataset to download"
         required: true
-        default: pneumonia
+        default: both
         type: choice
         options:
           - pneumonia
@@ -18,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -31,14 +36,18 @@ jobs:
           pip install medmnist==3.0.2 Pillow==10.4.0 numpy==2.1.2
 
       - name: Download PneumoniaMNIST
-        if: inputs.dataset == 'pneumonia' || inputs.dataset == 'both'
+        if: github.event_name == 'push' || inputs.dataset == 'pneumonia' || inputs.dataset == 'both'
         run: |
-          python training/download_medmnist.py             --dataset pneumonia             --output data/pneumonia_mnist
+          python training/download_medmnist.py \
+            --dataset pneumonia \
+            --output data/pneumonia_mnist
 
       - name: Download DermaMNIST
-        if: inputs.dataset == 'skin' || inputs.dataset == 'both'
+        if: github.event_name == 'push' || inputs.dataset == 'skin' || inputs.dataset == 'both'
         run: |
-          python training/download_medmnist.py             --dataset skin             --output data/dermamnist
+          python training/download_medmnist.py \
+            --dataset skin \
+            --output data/dermamnist
 
       - name: Package dataset
         run: |
@@ -51,7 +60,7 @@ jobs:
           fi
 
       - name: Upload dataset artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: medical-research-datasets
           path: artifacts/
