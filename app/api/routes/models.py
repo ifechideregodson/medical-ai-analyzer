@@ -1,16 +1,22 @@
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
 from app.config import settings
 from app.schemas.models import ModelActivateRequest, ModelInfo, ModelListResponse
 from app.services.model_registry import ensure_model_exists, model_registry
 
+
+def require_model_admin(x_admin_key: str | None) -> None:
+    if not settings.api_key_admin_secret or x_admin_key != settings.api_key_admin_secret:
+        raise HTTPException(status_code=401, detail="Administrator secret is required")
+
 router = APIRouter(prefix="/api/v1/models", tags=["models"])
 
 
 @router.post("/upload")
-async def upload_model(file: UploadFile = File(...), model_name: str = None, image_type: str = None, labels: str = None, description: str = None, accuracy: float = None) -> dict:
+async def upload_model(file: UploadFile = File(...), model_name: str = None, image_type: str = None, labels: str = None, description: str = None, accuracy: float = None, x_admin_key: str | None = Header(default=None)) -> dict:
+    require_model_admin(x_admin_key)
     if not model_name or not image_type or not labels:
         raise HTTPException(status_code=400, detail="model_name, image_type, and labels are required")
     if image_type not in {"xray", "skin"}:
@@ -67,7 +73,8 @@ async def get_model(model_name: str) -> dict:
 
 
 @router.post("/activate")
-async def activate_model(request: ModelActivateRequest) -> dict:
+async def activate_model(request: ModelActivateRequest, x_admin_key: str | None = Header(default=None)) -> dict:
+    require_model_admin(x_admin_key)
     try:
         metadata = model_registry.activate_model(request.model_name)
         return {"status": "ok", "message": f"Model {request.model_name} activated", "model": metadata}
@@ -76,7 +83,8 @@ async def activate_model(request: ModelActivateRequest) -> dict:
 
 
 @router.delete("/{model_name}")
-async def delete_model(model_name: str) -> dict:
+async def delete_model(model_name: str, x_admin_key: str | None = Header(default=None)) -> dict:
+    require_model_admin(x_admin_key)
     try:
         model_registry.delete_model(model_name)
         return {"status": "ok", "message": f"Model {model_name} deleted"}
