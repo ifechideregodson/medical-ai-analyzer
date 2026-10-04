@@ -76,3 +76,19 @@ services:
     routes:
       - path: /
         matchType: prefix
+
+  # Next.js web application
+  - type: web
+    name: medical-ai-web
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        value: https://medical-ai-api.onrender.com
