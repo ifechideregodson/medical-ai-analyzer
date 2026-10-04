@@ -1,53 +1,52 @@
 # Model training
 
-The training pipeline expects a directory containing one folder per class:
+The training pipeline is for research/model development and does not establish clinical validity.
 
-```text
-data/xray/
-  normal/
-    image-001.png
-  pneumonia/
-    image-002.png
-```
+## Official MedMNIST splits
 
-Run locally with:
-
-```bash
-python training/train_classifier.py --data data/xray --output models/xray_v1 --epochs 10
-```
-
-The pipeline creates:
-- `model.pt`: checkpoint containing the model state and class labels.
-- `metrics.json`: validation history, held-out test metrics, confusion matrix, and per-class metrics.
-- `labels.json`: class order used by the model.
-
-Do not treat training accuracy as evidence of clinical performance. Before clinical use, the model needs appropriately separated patient/study-level data, external validation, calibration, bias/subgroup analysis, prospective evaluation, and the required clinical/privacy/regulatory review.
-
-
-## Real public dataset
-
-The repository includes `training/download_medmnist.py`, which downloads real public research data from MedMNIST and exports it into class folders.
-
-### Chest X-ray dataset
-
-Use PneumoniaMNIST:
+The recommended workflow is to use the dataset exported by `download_medmnist.py`:
 
 ```bash
 python training/download_medmnist.py --dataset pneumonia --output data/pneumonia_mnist
+python training/train_classifier.py --data data/pneumonia_mnist --output models/pneumonia_v1 --epochs 10
 ```
 
-This preserves the official `train`, `val`, and `test` splits and writes a `manifest.csv`.
+The exporter creates:
 
-### Skin-image dataset
+```text
+data/pneumonia_mnist/
+  train/<class>/*.png
+  val/<class>/*.png
+  test/<class>/*.png
+  manifest.csv
+```
 
-Use DermaMNIST:
+When these three directories exist, the trainer **uses them directly**. It does not reshuffle official MedMNIST examples between train, validation, and test.
+
+For DermaMNIST:
 
 ```bash
 python training/download_medmnist.py --dataset skin --output data/dermamnist
+python training/train_classifier.py --data data/dermamnist --output models/derma_v1 --epochs 10
 ```
 
-DermaMNIST has a different license from most MedMNIST subsets, so check the dataset terms before redistribution or commercial use.
+The trainer also supports the older single-root layout:
 
-MedMNIST is a lightweight biomedical-image benchmark and is suitable for developing and testing the training pipeline, but it is **not sufficient by itself to establish clinical performance**. The project should later add appropriately governed, representative clinical data and external validation.
+```text
+data/xray/
+  normal/*.png
+  pneumonia/*.png
+```
 
-A manual GitHub Actions workflow is also provided to download and package the datasets as workflow artifacts without committing the image files to the repository.
+In that case it creates a stratified image-level split. Use `--split-mode official` to require official split directories or `--split-mode stratified` to force a new split.
+
+## Outputs
+
+Each training run writes:
+
+- `model.pth` — full PyTorch model artifact compatible with the current model registry loader.
+- `model.pt` — portable state-dict checkpoint with architecture and class metadata.
+- `metrics.json` — held-out test metrics, confusion matrix, per-class metrics and training history.
+- `labels.json` — exact class order used by the model.
+
+Before clinical use, the model needs appropriately separated patient/study-level data, external validation, calibration, bias/subgroup analysis, prospective evaluation, and required clinical/privacy/regulatory review.
