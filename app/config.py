@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     xray_model_path: str = "models/xray_model.pth"
     skin_model_path: str = "models/skin_model.pth"
+    xray_model_url: str = ""
+    skin_model_url: str = ""
+    xray_model_sha256: str = ""
+    skin_model_sha256: str = ""
+    model_download_timeout: int = 300
     confidence_threshold: float = 0.65
     review_threshold: float = 0.75
     secret_key: str = "change-me-in-production"
