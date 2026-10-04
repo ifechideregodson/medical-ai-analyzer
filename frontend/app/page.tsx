@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText, KeyRound,
   Image as ImageIcon, LayoutDashboard, Microscope, Settings, ShieldCheck,
-  Stethoscope, Upload, UserRound, XCircle
+  Stethoscope, Upload, UserRound, XCircle, Users, History, RefreshCw, Save, LogOut
 } from "lucide-react";\nimport type { LucideIcon } from "lucide-react";
 
 type Mode = "xray" | "skin";
