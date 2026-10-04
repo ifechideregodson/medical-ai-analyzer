@@ -5,7 +5,7 @@ import {
   Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText, KeyRound,
   Image as ImageIcon, LayoutDashboard, Microscope, Settings, ShieldCheck,
   Stethoscope, Upload, UserRound, XCircle
-} from "lucide-react";
+} from "lucide-react";\nimport type { LucideIcon } from "lucide-react";
 
 type Mode = "xray" | "skin";
 type Result = {
