@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Brain, CheckCircle2, ChevronRight, FileText, KeyRound,
   Image as ImageIcon, LayoutDashboard, Microscope, Settings, ShieldCheck,
@@ -126,7 +126,14 @@ export default function Home() {
           </section>
         )}
         {page === "API Keys" && <APIKeys />}
-        {page !== "Dashboard" && page !== "Analyze Image" && page !== "API Keys" && <ComingSoon title={page} />}
+        {page === "Patients" && <PatientsWorkspace />}
+        {page === "Reports" && <ReportsWorkspace />}
+        {page === "Research" && <ResearchWorkspace />}
+        {page === "Models" && <ModelsWorkspace />}
+        {page === "Analytics" && <AnalyticsWorkspace />}
+        {page === "Audit Trail" && <AuditWorkspace />}
+        {page === "Settings" && <SettingsWorkspace />}
+        {page !== "Dashboard" && page !== "Analyze Image" && page !== "API Keys" && page !== "Patients" && page !== "Reports" && page !== "Research" && page !== "Models" && page !== "Analytics" && page !== "Audit Trail" && page !== "Settings" && <ComingSoon title={page} />}
       </section>
     </main>
   );
@@ -146,6 +153,7 @@ function ComingSoon({title}:{title:string}) { return <div className="panel comin
 function APIKeys() {
   const [workspace, setWorkspace] = useState<"api" | "gateway">("gateway");
   const [adminKey, setAdminKey] = useState("");
+  useEffect(() => { const key = sessionStorage.getItem("medai_admin_secret"); if (key) setAdminKey(key); }, []);
   return <section>
     <div className="hero">
       <div>
@@ -163,7 +171,7 @@ function APIKeys() {
     </div>
     <div className="panel adminPanel">
       <div className="panelHead"><div><b>Administrator access</b><span>Required to issue, list or revoke credentials. The admin secret stays in this browser session only.</span></div><ShieldCheck size={20}/></div>
-      <input className="textInput" type="password" placeholder="Admin API-key secret" value={adminKey} onChange={e=>setAdminKey(e.target.value)} />
+      <input className="textInput" type="password" placeholder="Admin API-key secret" value={adminKey} onChange={e=>{setAdminKey(e.target.value);sessionStorage.setItem("medai_admin_secret",e.target.value)}} />
     </div>
     {workspace === "gateway"
       ? <ModelGatewayWorkspace adminKey={adminKey}/>
@@ -286,4 +294,78 @@ function APIDocs() {
     </div>
     <div className="notice"><b>Important:</b> MedAI's current models are research/decision-support models and are not clinically validated for standalone diagnosis. Integrations must keep a qualified clinician in the review workflow.</div>
   </section>;
+}
+
+
+function getAdminSecret(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("medai_admin_secret") || "";
+}
+async function clinicalRequest(path: string, init: RequestInit = {}) {
+  const key = getAdminSecret();
+  const headers = new Headers(init.headers);
+  headers.set("X-Admin-Key", key);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  return fetch(API_URL + path, { ...init, headers });
+}
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(Boolean(getAdminSecret())), []);
+  if (!ready) return <div className="panel coming"><ShieldCheck size={42}/><h2>Administrator access required</h2><p>Open API Keys, enter API_KEY_ADMIN_SECRET, and keep the session active. The secret is not committed to the application.</p></div>;
+  return <>{children}</>;
+}
+
+function PatientsWorkspace() {
+  const [patients,setPatients]=useState<any[]>([]),[ref,setRef]=useState(""),[name,setName]=useState(""),[sex,setSex]=useState(""),[dob,setDob]=useState(""),[notes,setNotes]=useState(""),[msg,setMsg]=useState("");
+  const load=async()=>{const r=await clinicalRequest("/api/v1/clinical/patients");const d=await r.json();if(r.ok)setPatients(d);else setMsg(d.detail||"Unable to load patients")};
+  useEffect(()=>{load()},[]);
+  const create=async()=>{const r=await clinicalRequest("/api/v1/clinical/patients",{method:"POST",body:JSON.stringify({patient_ref:ref,name,date_of_birth:dob||null,sex:sex||null,notes:notes||null})});const d=await r.json();if(!r.ok){setMsg(d.detail||"Unable to create patient");return}setRef("");setName("");setSex("");setDob("");setNotes("");setMsg("Patient created");load()};
+  return <AdminGate><section><div className="hero"><span className="pill">CLINICAL RECORDS</span><h2>Patient management is now connected.</h2><p>Create persistent patient references and link analyses and reports to them.</p></div><div className="analysisGrid"><div className="panel"><div className="panelHead"><div><b>New patient</b><span>Store only information appropriate for your deployment.</span></div><Users size={20}/></div><input className="textInput" placeholder="Patient reference" value={ref} onChange={e=>setRef(e.target.value)}/><input className="textInput" placeholder="Patient name" value={name} onChange={e=>setName(e.target.value)}/><div className="analysisGrid"><input className="textInput" placeholder="Date of birth" value={dob} onChange={e=>setDob(e.target.value)}/><input className="textInput" placeholder="Sex" value={sex} onChange={e=>setSex(e.target.value)}/></div><textarea className="textInput" placeholder="Notes" value={notes} onChange={e=>setNotes(e.target.value)}/><button className="primary full" disabled={!ref||!name} onClick={create}><Save size={16}/>Create patient</button>{msg&&<div className="error">{msg}</div>}</div><div className="panel"><div className="panelHead"><div><b>Saved patients</b><span>{patients.length} records</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{patients.length===0?<div className="empty"><Users size={34}/><b>No patients</b><span>Create the first persistent patient record.</span></div>:patients.map(p=><div className="step" key={p.id}><span>{p.id}</span><div><b>{p.name}</b><small>{p.patient_ref} · {p.sex||"sex not recorded"} · {p.date_of_birth||"DOB not recorded"}</small></div></div>)}</div></div></section></AdminGate>;
+}
+
+function ReportsWorkspace() {
+  const [reports,setReports]=useState<any[]>([]),[analyses,setAnalyses]=useState<any[]>([]),[analysisId,setAnalysisId]=useState(""),[title,setTitle]=useState(""),[findings,setFindings]=useState(""),[impression,setImpression]=useState(""),[author,setAuthor]=useState(""),[msg,setMsg]=useState("");
+  const load=async()=>{const [rr,ar]=await Promise.all([clinicalRequest("/api/v1/clinical/reports"),clinicalRequest("/api/v1/clinical/analyses")]);const rd=await rr.json(),ad=await ar.json();if(rr.ok)setReports(rd);if(ar.ok)setAnalyses(ad)};
+  useEffect(()=>{load()},[]);
+  const create=async()=>{const r=await clinicalRequest("/api/v1/clinical/reports",{method:"POST",body:JSON.stringify({analysis_id:Number(analysisId),title,findings,impression,author})});const d=await r.json();if(!r.ok){setMsg(d.detail||"Unable to create report");return}setTitle("");setFindings("");setImpression("");load()};
+  const sign=async(id:number)=>{const signer=window.prompt("Clinician name for signature");if(!signer)return;const r=await clinicalRequest("/api/v1/clinical/reports/"+id+"/sign",{method:"POST",body:JSON.stringify({signer})});if(!r.ok){const d=await r.json();setMsg(d.detail||"Unable to sign report")}load()};
+  return <AdminGate><section><div className="hero"><span className="pill">REPORTING</span><h2>Clinical reports are persistent and signable.</h2><p>Draft reports from stored analyses, then sign them. Signed reports are immutable.</p></div><div className="analysisGrid"><div className="panel"><div className="panelHead"><div><b>Create report</b><span>Every report links to an analysis.</span></div><FileText size={20}/></div><select className="textInput" value={analysisId} onChange={e=>setAnalysisId(e.target.value)}><option value="">Select analysis</option>{analyses.map(a=><option key={a.id} value={a.id}>#{a.id} · {a.image_type} · {a.finding}</option>)}</select><input className="textInput" placeholder="Report title" value={title} onChange={e=>setTitle(e.target.value)}/><input className="textInput" placeholder="Author" value={author} onChange={e=>setAuthor(e.target.value)}/><textarea className="textInput" placeholder="Findings" value={findings} onChange={e=>setFindings(e.target.value)}/><textarea className="textInput" placeholder="Impression" value={impression} onChange={e=>setImpression(e.target.value)}/><button className="primary full" disabled={!analysisId||!title||!author||!findings||!impression} onClick={create}><Save size={16}/>Save draft report</button>{msg&&<div className="error">{msg}</div>}</div><div className="panel"><div className="panelHead"><div><b>Reports</b><span>{reports.length} saved</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{reports.length===0?<div className="empty"><FileText size={34}/><b>No reports</b><span>Create a report after an analysis.</span></div>:reports.map(r=><div className="reportCard" key={r.id}><div className="reportHead"><div><b>{r.title}</b><small>Report #{r.id} · Analysis #{r.analysis_id} · {r.author}</small></div><span className={"badge "+r.status}>{r.status}</span></div><p><b>Findings:</b> {r.findings}</p><p><b>Impression:</b> {r.impression}</p>{r.status==="draft"&&<button className="secondary" onClick={()=>sign(r.id)}>Sign report</button>}{r.status==="signed"&&<small>Signed by {r.signed_by} on {new Date(r.signed_at).toLocaleString()}</small>}</div>)}</div></div></section></AdminGate>;
+}
+
+function ResearchWorkspace() {
+  const [items,setItems]=useState<any[]>([]),[title,setTitle]=useState(""),[dataset,setDataset]=useState(""),[model,setModel]=useState(""),[hypothesis,setHypothesis]=useState(""),[metrics,setMetrics]=useState(""),[owner,setOwner]=useState(""),[msg,setMsg]=useState("");
+  const load=async()=>{const r=await clinicalRequest("/api/v1/clinical/research");const d=await r.json();if(r.ok)setItems(d);else setMsg(d.detail||"Unable to load research")};
+  useEffect(()=>{load()},[]);
+  const create=async()=>{const r=await clinicalRequest("/api/v1/clinical/research",{method:"POST",body:JSON.stringify({title,dataset:dataset||null,model_name:model||null,hypothesis:hypothesis||null,metric_summary:metrics||null,status:"draft",owner})});const d=await r.json();if(!r.ok){setMsg(d.detail||"Unable to save research");return}setTitle("");setDataset("");setModel("");setHypothesis("");setMetrics("");load()};
+  return <AdminGate><section><div className="hero"><span className="pill">RESEARCH REGISTRY</span><h2>Research records are stored in the database.</h2><p>Save study metadata, datasets, hypotheses, models and evaluation summaries instead of showing a placeholder page.</p></div><div className="analysisGrid"><div className="panel"><div className="panelHead"><div><b>New research record</b><span>Persistent experiment metadata.</span></div><Microscope size={20}/></div><input className="textInput" placeholder="Study title" value={title} onChange={e=>setTitle(e.target.value)}/><input className="textInput" placeholder="Dataset" value={dataset} onChange={e=>setDataset(e.target.value)}/><input className="textInput" placeholder="Model / experiment" value={model} onChange={e=>setModel(e.target.value)}/><textarea className="textInput" placeholder="Hypothesis" value={hypothesis} onChange={e=>setHypothesis(e.target.value)}/><textarea className="textInput" placeholder="Metrics / evaluation summary" value={metrics} onChange={e=>setMetrics(e.target.value)}/><input className="textInput" placeholder="Owner" value={owner} onChange={e=>setOwner(e.target.value)}/><button className="primary full" disabled={!title||!owner} onClick={create}><Save size={16}/>Save research record</button>{msg&&<div className="error">{msg}</div>}</div><div className="panel"><div className="panelHead"><div><b>Research registry</b><span>{items.length} saved</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{items.length===0?<div className="empty"><Microscope size={34}/><b>No research records</b><span>Save the first research project.</span></div>:items.map(x=><div className="reportCard" key={x.id}><div className="reportHead"><div><b>{x.title}</b><small>{x.owner} · {x.status}</small></div><span className="badge">{x.id}</span></div><p><b>Dataset:</b> {x.dataset||"—"} · <b>Model:</b> {x.model_name||"—"}</p><p>{x.hypothesis||"No hypothesis recorded."}</p><small>{x.metric_summary||"No evaluation summary recorded."}</small></div>)}</div></div></section></AdminGate>;
+}
+
+function ModelsWorkspace() {
+  const [models,setModels]=useState<any[]>([]),[msg,setMsg]=useState("");
+  const load=async()=>{const r=await fetch(API_URL+"/api/v1/models/list");const d=await r.json();if(r.ok)setModels(d.models||[]);else setMsg(d.detail||"Unable to load models")};
+  useEffect(()=>{load()},[]);
+  const activate=async(name:string)=>{const r=await fetch(API_URL+"/api/v1/models/activate",{method:"POST",headers:{"Content-Type":"application/json","X-Admin-Key":getAdminSecret()},body:JSON.stringify({model_name:name})});const d=await r.json();if(!r.ok)setMsg(d.detail||"Unable to activate model");else load()};
+  return <section><div className="hero"><span className="pill">MODEL REGISTRY</span><h2>Model management is connected to the real registry.</h2><p>Inspect registry models and activate an uploaded model for its image type. Configured release models remain available through the readiness service.</p></div><div className="panel"><div className="panelHead"><div><b>Registered models</b><span>{models.length} registry records</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{models.length===0?<div className="empty"><Activity size={34}/><b>No local registry models</b><span>Training releases are loaded through the configured model URLs. Uploaded registry models will appear here.</span></div>:models.map(m=><div className="modelRow" key={m.model_name}><div><b>{m.model_name}</b><small>{m.image_type} · {m.labels?.join(", ")} · {m.file_size} bytes</small></div><span className={"badge "+(m.is_active?"active":"draft")}>{m.is_active?"active":"inactive"}</span>{!m.is_active&&<button className="secondary" onClick={()=>activate(m.model_name)}>Activate</button>}</div>)}{msg&&<div className="error">{msg}</div>}</div><div className="notice"><b>Safety:</b> registry controls do not mean a model is clinically validated.</div></section>;
+}
+
+function AnalyticsWorkspace() {
+  const [data,setData]=useState<any>(null),[msg,setMsg]=useState("");
+  const load=async()=>{const r=await clinicalRequest("/api/v1/clinical/analytics");const d=await r.json();if(r.ok)setData(d);else setMsg(d.detail||"Unable to load analytics")};
+  useEffect(()=>{load()},[]);
+  return <AdminGate><section><div className="hero"><span className="pill">LIVE ANALYTICS</span><h2>Analytics are calculated from persisted clinical records.</h2><p>No hard-coded dashboard numbers: these values come from the database.</p></div><div className="stats"><Stat icon={Users} label="Patients" value={data?.patients??"—"} note="database count"/><Stat icon={ImageIcon} label="Analyses" value={data?.analyses??"—"} note={(data?.reviewed_analyses??0)+" reviewed"}/><Stat icon={FileText} label="Reports" value={data?.reports??"—"} note={(data?.signed_reports??0)+" signed"}/><Stat icon={Brain} label="Avg confidence" value={data?Math.round(data.average_confidence*100)+"%":"—"} note="recorded analyses"/></div><div className="panel"><div className="panelHead"><div><b>Operational totals</b><span>Current database snapshot</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div><div className="metricsGrid"><div className="metric"><span>Pending reviews</span><b>{data?.pending_reviews??"—"}</b></div><div className="metric"><span>Research records</span><b>{data?.research_records??"—"}</b></div><div className="metric"><span>Audit events</span><b>{data?.audit_events??"—"}</b></div></div>{msg&&<div className="error">{msg}</div>}</div></section></AdminGate>;
+}
+
+function AuditWorkspace() {
+  const [events,setEvents]=useState<any[]>([]),[msg,setMsg]=useState("");
+  const load=async()=>{const r=await clinicalRequest("/api/v1/clinical/audit?limit=200");const d=await r.json();if(r.ok)setEvents(d);else setMsg(d.detail||"Unable to load audit trail")};
+  useEffect(()=>{load()},[]);
+  return <AdminGate><section><div className="hero"><span className="pill">AUDIT TRAIL</span><h2>Workflow events are recorded.</h2><p>Patient, analysis, review, report and research changes are timestamped with an actor and entity.</p></div><div className="panel"><div className="panelHead"><div><b>Recent events</b><span>{events.length} loaded</span></div><button className="secondary" onClick={load}><RefreshCw size={16}/>Refresh</button></div>{events.length===0?<div className="empty"><History size={34}/><b>No events yet</b><span>Use the clinical workflow and events will appear here.</span></div>:events.map(e=><div className="auditRow" key={e.id}><span>{new Date(e.created_at).toLocaleString()}</span><b>{e.event_type}</b><span>{e.entity_type} #{e.entity_id||"—"}</span><span>{e.actor}</span><small>{e.details||""}</small></div>)}{msg&&<div className="error">{msg}</div>}</div></section></AdminGate>;
+}
+
+function SettingsWorkspace() {
+  const [health,setHealth]=useState<any>(null),[msg,setMsg]=useState("");
+  const check=async()=>{try{const r=await fetch(API_URL+"/health");const d=await r.json();if(!r.ok)throw new Error("API unavailable");setHealth(d)}catch(e){setMsg(e instanceof Error?e.message:"API unavailable")}};
+  useEffect(()=>{check()},[]);
+  const clear=()=>{sessionStorage.removeItem("medai_admin_secret");window.location.reload()};
+  return <section><div className="hero"><span className="pill">SETTINGS</span><h2>System settings and live service status.</h2><p>The settings workspace now reports the actual backend health state and browser administrator session.</p></div><div className="analysisGrid"><div className="panel"><div className="panelHead"><div><b>Administrator session</b><span>Credentials stay in this browser session.</span></div><Settings size={20}/></div><p className="docText">{getAdminSecret()?"Administrator session is active.":"No administrator session is active. Use API Keys to connect."}</p><button className="secondary full" onClick={clear}><LogOut size={16}/>Clear administrator session</button></div><div className="panel"><div className="panelHead"><div><b>Backend health</b><span>Live request to FastAPI.</span></div><Activity size={20}/></div>{health?<div className="safety"><CheckCircle2/><div><b>API online</b><p>{health.app} · version {health.version} · {health.environment}</p></div></div>:<div className="error">{msg||"Checking API…"}</div>}<button className="secondary full" onClick={check}><RefreshCw size={16}/>Check again</button></div></div><div className="panel"><div className="panelHead"><div><b>Clinical safety</b><span>Deployment requirements</span></div><ShieldCheck size={20}/></div><p className="docText">The current models remain research/decision-support models and are not clinically validated for standalone diagnosis. Before real patient deployment, implement jurisdiction-appropriate identity, access control, consent, retention, encryption, backup and clinical validation processes.</p></div></section>;
 }
