@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import api_keys, predict, training, models
+from app.api.routes import api_keys, model_gateway_keys, predict, training, models
 from app.config import settings
 
 app = FastAPI(
@@ -22,6 +22,7 @@ app.include_router(predict.router)
 app.include_router(training.router)
 app.include_router(models.router)
 app.include_router(api_keys.router)
+app.include_router(model_gateway_keys.router)
 
 
 @app.get("/health")
