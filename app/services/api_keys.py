@@ -107,3 +107,30 @@ def authenticate_api_key(raw_key: str | None) -> bool:
         item.last_used_at = datetime.now(timezone.utc)
         db.commit()
         return True
+
+
+def rate_limit_key(raw_key: str) -> str:
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+
+def check_rate_limit(raw_key: str, limit: int = 60) -> None:
+    """Best-effort per-key minute limiter. API remains available if Redis is temporarily unavailable."""
+    try:
+        import redis
+        client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        bucket = f"medai:api-rate:{rate_limit_key(raw_key)}"
+        count = client.incr(bucket)
+        if count == 1:
+            client.expire(bucket, 60)
+        if count > limit:
+            from fastapi import HTTPException
+            from fastapi import status
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"API rate limit exceeded. Maximum {limit} requests per minute.",
+                headers={"Retry-After": "60"},
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        return
