@@ -13,6 +13,9 @@ type Result = {
   confidence: number;
   all_scores: Record<string, number>;
   needs_review: boolean;
+  model_name?: string;
+  model_source?: string;
+  research_status?: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -25,6 +28,16 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState("Dashboard");
   const [error, setError] = useState("");
+  const [modelReady, setModelReady] = useState<boolean | null>(null);
+
+  async function checkModel() {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/models/readiness/${mode}`);
+      setModelReady(response.ok);
+    } catch {
+      setModelReady(false);
+    }
+  }
 
   const confidence = useMemo(() => result ? Math.round(result.confidence * 100) : 0, [result]);
 
@@ -55,7 +68,7 @@ export default function Home() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell" onLoad={checkModel}>
       <aside className="sidebar">
         <div className="brand"><div className="brandMark"><Brain size={21}/></div><div><strong>MedAI</strong><span>Clinical Analyzer</span></div></div>
         <div className="navLabel">WORKSPACE</div>
@@ -74,7 +87,7 @@ export default function Home() {
       </aside>
 
       <section className="content">
-        <header className="topbar"><div><span className="eyebrow">MEDICAL AI PLATFORM</span><h1>{page}</h1></div><div className="status"><span className="dot"/>AI service connected</div></header>
+        <header className="topbar"><div><span className="eyebrow">MEDICAL AI PLATFORM</span><h1>{page}</h1></div><div className="status"><span className={`dot ${modelReady === false ? "offline" : ""}`}/>{modelReady === true ? "Trained model ready" : modelReady === false ? "Model unavailable" : "Checking model…"}</div></header>
 
         {page === "Dashboard" && <Dashboard onAnalyze={() => setPage("Analyze Image")} />}
         {page === "Analyze Image" && (
@@ -105,6 +118,7 @@ export default function Home() {
                     <div className={`review ${result.needs_review ? "warning" : "ok"}`}>{result.needs_review ? <><XCircle size={19}/><span>Clinician review recommended</span></> : <><CheckCircle2 size={19}/><span>Above review threshold</span></>}</div>
                     <div className="scoreList">{Object.entries(result.all_scores).map(([label, score]) => <div className="score" key={label}><div><span>{label}</span><b>{Math.round(score * 100)}%</b></div><div className="bar"><i style={{width: `${Math.round(score * 100)}%`}}/></div></div>)}</div>
                     <div className="meta"><span>Model</span><b>Active trained model</b><span>Workflow</span><b>{mode === "xray" ? "X-ray analysis" : "Skin analysis"}</b></div>
+                    <div className="meta"><span>Model</span><b>{result.model_name ?? "Configured trained model"}</b><span>Source</span><b>{result.model_source ?? "API registry"}</b></div>
                     <button className="secondary full"><FileText size={17}/>Create clinical review report</button>
                   </div>}
               </div>
