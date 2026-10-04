@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_key_admin_secret: str = ""
     api_key_prefix: str = "medai"
+    model_gateway_key_prefix: str = "medai_gw"
     api_rate_limit_per_minute: int = 60
 
     @property

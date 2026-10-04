@@ -144,7 +144,34 @@ function ComingSoon({title}:{title:string}) { return <div className="panel comin
 
 
 function APIKeys() {
+  const [workspace, setWorkspace] = useState<"api" | "gateway">("gateway");
   const [adminKey, setAdminKey] = useState("");
+  return <section>
+    <div className="hero">
+      <div>
+        <span className="pill">DEVELOPER ACCESS</span>
+        <h2>{workspace === "gateway" ? "Model Gateway keys" : "API keys"}</h2>
+        <p>{workspace === "gateway"
+          ? "Issue secure MODEL_GATEWAY_API_KEY credentials for approved applications. The complete secret is revealed only once."
+          : "Issue keys for approved applications and developers that need to connect to the MedAI inference API."}</p>
+      </div>
+      <KeyRound size={72}/>
+    </div>
+    <div className="keyTabs">
+      <button className={workspace === "gateway" ? "selected" : ""} onClick={() => setWorkspace("gateway")}>MODEL_GATEWAY_API_KEY</button>
+      <button className={workspace === "api" ? "selected" : ""} onClick={() => setWorkspace("api")}>Standard API keys</button>
+    </div>
+    <div className="panel adminPanel">
+      <div className="panelHead"><div><b>Administrator access</b><span>Required to issue, list or revoke credentials. The admin secret stays in this browser session only.</span></div><ShieldCheck size={20}/></div>
+      <input className="textInput" type="password" placeholder="Admin API-key secret" value={adminKey} onChange={e=>setAdminKey(e.target.value)} />
+    </div>
+    {workspace === "gateway"
+      ? <ModelGatewayWorkspace adminKey={adminKey}/>
+      : <StandardAPIWorkspace adminKey={adminKey}/>}
+  </section>;
+}
+
+function ModelGatewayWorkspace({adminKey}:{adminKey:string}) {
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [keys, setKeys] = useState<Array<{id:number;name:string;owner:string;key_prefix:string;created_at:string;is_active:boolean}>>([]);
@@ -153,61 +180,76 @@ function APIKeys() {
   const [busy, setBusy] = useState(false);
 
   async function loadKeys() {
+    if (!adminKey) return;
     setBusy(true); setMessage("");
     try {
-      const r = await fetch(`${API_URL}/api/v1/api-keys`, {headers: {"X-Admin-Key": adminKey}});
+      const r = await fetch(`${API_URL}/api/v1/model-gateway/keys`, {headers: {"X-Admin-Key": adminKey}});
       const data = await r.json();
-      if (!r.ok) throw new Error(data.detail ?? "Unable to load API keys");
+      if (!r.ok) throw new Error(data.detail ?? "Unable to load gateway keys");
       setKeys(data);
-    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to load API keys"); }
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to load gateway keys"); }
     finally { setBusy(false); }
   }
 
   async function createKey() {
     setBusy(true); setMessage(""); setNewKey("");
     try {
-      const r = await fetch(`${API_URL}/api/v1/api-keys`, {
+      const r = await fetch(`${API_URL}/api/v1/model-gateway/keys`, {
         method: "POST",
         headers: {"Content-Type":"application/json", "X-Admin-Key": adminKey},
         body: JSON.stringify({name, owner})
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.detail ?? "Unable to create API key");
-      setNewKey(data.api_key);
+      if (!r.ok) throw new Error(data.detail ?? "Unable to create MODEL_GATEWAY_API_KEY");
+      setNewKey(data.model_gateway_api_key);
       setName(""); setOwner("");
       await loadKeys();
-    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to create API key"); }
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Unable to create gateway key"); }
     finally { setBusy(false); }
   }
 
-  async function revoke(id: number) {
-    if (!confirm("Revoke this API key? Applications using it will stop authenticating.")) return;
-    const r = await fetch(`${API_URL}/api/v1/api-keys/${id}`, {method:"DELETE", headers:{"X-Admin-Key":adminKey}});
+  async function revoke(id:number) {
+    if (!confirm("Revoke this MODEL_GATEWAY_API_KEY? Applications using it will stop authenticating.")) return;
+    const r = await fetch(`${API_URL}/api/v1/model-gateway/keys/${id}`, {method:"DELETE", headers:{"X-Admin-Key":adminKey}});
     if (r.ok) await loadKeys(); else setMessage((await r.json()).detail ?? "Unable to revoke key");
   }
 
-  return <section>
-    <div className="hero"><div><span className="pill">DEVELOPER ACCESS</span><h2>API keys</h2><p>Issue keys for hospitals, applications and approved developers that need to connect to the MedAI API.</p></div><KeyRound size={72}/></div>
-    <div className="analysisGrid">
-      <div className="panel">
-        <div className="panelHead"><div><b>Administrator access</b><span>The admin secret is never stored in the browser.</span></div><ShieldCheck size={20}/></div>
-        <input className="textInput" type="password" placeholder="Admin API-key secret" value={adminKey} onChange={e=>setAdminKey(e.target.value)} />
-        <button className="secondary full" onClick={loadKeys} disabled={!adminKey || busy}>Load API keys</button>
-        <div className="panelHead"><div><b>Create API key</b><span>The full key is shown only once.</span></div></div>
-        <input className="textInput" placeholder="Application / organization name" value={name} onChange={e=>setName(e.target.value)} />
-        <input className="textInput" placeholder="Owner email or identifier" value={owner} onChange={e=>setOwner(e.target.value)} />
-        <button className="primary full" onClick={createKey} disabled={!adminKey || !name || !owner || busy}>Generate API key</button>
-        {newKey && <div className="notice"><b>Copy this key now:</b><br/><code>{newKey}</code><br/>It will not be displayed again.</div>}
-        {message && <div className="error">{message}</div>}
-      </div>
-      <div className="panel">
-        <div className="panelHead"><div><b>Issued keys</b><span>Only prefixes are displayed after creation.</span></div><KeyRound size={20}/></div>
-        {!keys.length ? <div className="empty"><KeyRound size={34}/><b>No keys loaded</b><span>Enter the administrator secret and load the key list.</span></div> : keys.map(k=><div className="step" key={k.id}><span>{k.is_active ? "✓" : "×"}</span><div><b>{k.name}</b><small>{k.owner} · {k.key_prefix} · {k.is_active ? "Active" : "Revoked"}</small></div>{k.is_active && <button className="secondary" onClick={()=>revoke(k.id)}>Revoke</button>}</div>)}
-      </div>
+  return <div className="analysisGrid">
+    <div className="panel">
+      <div className="panelHead"><div><b>Issue MODEL_GATEWAY_API_KEY</b><span>Generate a unique secret for an application or approved developer.</span></div><KeyRound size={20}/></div>
+      <input className="textInput" placeholder="Application / organization name" value={name} onChange={e=>setName(e.target.value)} />
+      <input className="textInput" placeholder="Owner email or identifier" value={owner} onChange={e=>setOwner(e.target.value)} />
+      <button className="primary full" onClick={createKey} disabled={!adminKey || !name || !owner || busy}>{busy ? "Generating…" : "Generate MODEL_GATEWAY_API_KEY"}</button>
+      {newKey && <div className="gatewaySecret"><b>Copy this now — it will never be shown again:</b><code>{newKey}</code><small>Environment variable format:</small><code>MODEL_GATEWAY_API_KEY={newKey}</code></div>}
+      {message && <div className="error">{message}</div>}
+      <p className="notice">The website generates the credential; it does not create an OpenAI, Anthropic, or other provider secret. Provider API keys remain private server-side credentials.</p>
     </div>
-  </section>;
+    <div className="panel">
+      <div className="panelHead"><div><b>Issued gateway keys</b><span>Only prefixes are retained for display after creation.</span></div><button className="secondary" onClick={loadKeys} disabled={!adminKey || busy}>Refresh</button></div>
+      {!keys.length ? <div className="empty"><KeyRound size={34}/><b>No gateway keys loaded</b><span>Enter the administrator secret, then tap Refresh.</span></div> :
+        keys.map(k=><div className="step" key={k.id}><span>{k.is_active ? "✓" : "×"}</span><div><b>{k.name}</b><small>{k.owner} · {k.key_prefix} · {k.is_active ? "Active" : "Revoked"}</small></div>{k.is_active && <button className="secondary" onClick={()=>revoke(k.id)}>Revoke</button>}</div>)}
+    </div>
+  </div>;
 }
 
+function StandardAPIWorkspace({adminKey}:{adminKey:string}) {
+  const [name,setName]=useState(""),[owner,setOwner]=useState(""),[newKey,setNewKey]=useState(""),[message,setMessage]=useState("");
+  async function createKey(){
+    try{
+      const r=await fetch(`${API_URL}/api/v1/api-keys`,{method:"POST",headers:{"Content-Type":"application/json","X-Admin-Key":adminKey},body:JSON.stringify({name,owner})});
+      const d=await r.json(); if(!r.ok) throw new Error(d.detail??"Unable to create API key"); setNewKey(d.api_key); setName("");setOwner("");
+    }catch(e){setMessage(e instanceof Error?e.message:"Unable to create API key")}
+  }
+  return <div className="panel"><div className="panelHead"><div><b>Create standard API key</b><span>For inference API access. The full secret is displayed only once.</span></div></div>
+    <div className="analysisGrid">
+      <input className="textInput" placeholder="Application / organization name" value={name} onChange={e=>setName(e.target.value)}/>
+      <input className="textInput" placeholder="Owner email or identifier" value={owner} onChange={e=>setOwner(e.target.value)}/>
+    </div>
+    <button className="primary full" onClick={createKey} disabled={!adminKey||!name||!owner}>Generate API key</button>
+    {newKey&&<div className="notice"><b>Copy this key now:</b><br/><code>{newKey}</code></div>}
+    {message&&<div className="error">{message}</div>}
+  </div>;
+}
 
 function APIDocs() {
   return <section>

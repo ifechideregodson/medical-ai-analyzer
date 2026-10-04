@@ -5,3 +5,5 @@
 code{word-break:break-all}
 
 .docsGrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}.docText{font-size:12px;line-height:1.6;color:#68758a}.codeBlock{background:#0f172a;color:#dbeafe;border-radius:10px;padding:14px;overflow:auto;font-size:11px;line-height:1.55;white-space:pre-wrap;word-break:break-word}@media(max-width:700px){.docsGrid{grid-template-columns:1fr}}
+
+.keyTabs{display:flex;gap:8px;margin:18px 0}.keyTabs button{border:1px solid #dce2eb;background:white;border-radius:9px;padding:10px 13px;color:#68758a;font-size:11px;font-weight:700}.keyTabs button.selected{border-color:#8db5ff;background:#eff6ff;color:#1d4ed8}.adminPanel{margin-bottom:18px}.gatewaySecret{margin-top:12px;padding:13px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px}.gatewaySecret b,.gatewaySecret small,.gatewaySecret code{display:block}.gatewaySecret b{font-size:11px;color:#1e3a8a}.gatewaySecret small{font-size:10px;color:#64748b;margin-top:10px}.gatewaySecret code{margin-top:5px;padding:9px;background:#0f172a;color:#dbeafe;border-radius:7px;font-size:11px}@media(max-width:600px){.keyTabs{flex-direction:column}.keyTabs button{width:100%}}
