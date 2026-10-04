@@ -18,8 +18,8 @@ class InferenceService:
         self.confidence_threshold = settings.confidence_threshold
         self.review_threshold = settings.review_threshold
 
-    def _load_model(self, model_path: str) -> torch.nn.Module:
-        ensure_model_exists(model_path)
+    def _load_model(self, model_path: str, image_type: str) -> torch.nn.Module:
+        ensure_model_exists(model_path, image_type)
         model = torch.load(model_path, map_location=DEVICE)
         if hasattr(model, "eval"):
             model.eval()
@@ -36,7 +36,7 @@ class InferenceService:
 
     def predict(self, image: Image.Image, image_type: str) -> dict[str, Any]:
         config = get_model_config(image_type)
-        model = self._load_model(config.model_path)
+        model = self._load_model(config.model_path, image_type)
         tensor = self._preprocess(image)
 
         with torch.no_grad():
@@ -45,9 +45,14 @@ class InferenceService:
             pred_index = int(np.argmax(probabilities))
             confidence = float(probabilities[pred_index])
 
+        if pred_index >= len(config.labels):
+            raise RuntimeError(
+                f"Model returned class index {pred_index}, but only {len(config.labels)} labels are configured"
+            )
+
         scores = {
             config.labels[i]: round(float(probabilities[i]), 4)
-            for i in range(len(config.labels))
+            for i in range(min(len(config.labels), len(probabilities)))
         }
         needs_review = confidence < self.confidence_threshold or confidence < self.review_threshold
 
@@ -56,4 +61,7 @@ class InferenceService:
             "confidence": round(confidence, 4),
             "all_scores": scores,
             "needs_review": needs_review,
+            "model_name": config.model_name,
+            "model_source": config.source,
+            "research_status": "research_only_not_clinically_validated",
         }
