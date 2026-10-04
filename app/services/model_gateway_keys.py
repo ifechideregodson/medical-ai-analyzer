@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
 from app.services.api_keys import Base, SessionLocal, engine, init_api_key_store
+from app.config import settings
 
 
 class ModelGatewayKey(Base):
@@ -47,7 +48,7 @@ def _serialize(record: ModelGatewayKey) -> dict:
 
 def create_model_gateway_key(name: str, owner: str) -> tuple[str, dict]:
     _init()
-    raw = f"medai_gw_{secrets.token_urlsafe(32)}"
+    raw = f"{settings.model_gateway_key_prefix}_{secrets.token_urlsafe(32)}"
     record = ModelGatewayKey(
         name=name.strip(),
         owner=owner.strip(),
