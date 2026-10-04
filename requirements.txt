@@ -15,7 +15,7 @@ torchvision==0.19.1
 numpy==2.1.2
 pandas==2.2.3
 scikit-learn==1.5.2
-opencv-python-headless==4.10.0
+opencv-python-headless==4.10.0.84
 Pillow==10.4.0
 medmnist==3.0.2
 
