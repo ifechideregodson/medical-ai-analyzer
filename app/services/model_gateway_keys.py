@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
-from app.services.api_keys import Base, SessionLocal, init_api_key_store
+from app.services.api_keys import Base, SessionLocal, engine, init_api_key_store
 
 
 class ModelGatewayKey(Base):
@@ -29,7 +29,7 @@ def _hash(raw_key: str) -> str:
 
 def _init() -> None:
     init_api_key_store()
-    ModelGatewayKey.metadata.create_all(bind=SessionLocal.kw["bind"])
+    ModelGatewayKey.metadata.create_all(bind=engine)
 
 
 def _serialize(record: ModelGatewayKey) -> dict:
