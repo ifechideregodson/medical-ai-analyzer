@@ -1,4 +1,3 @@
-training/train_skin.py
 from __future__ import annotations
 
 import os
@@ -11,7 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
 
-class SkinDataset(Dataset):
+class XrayDataset(Dataset):
     def __init__(self, csv_path: str, image_dir: str, transform=None):
         self.df = pd.read_csv(csv_path)
         self.image_dir = image_dir
@@ -34,17 +33,16 @@ def train() -> None:
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(20),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        transforms.RandomRotation(15),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-    dataset = SkinDataset("data/skin/train.csv", "data/skin/images", transform=transform)
+    dataset = XrayDataset("data/xray/train.csv", "data/xray/images", transform=transform)
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
     model = models.efficientnet_b0(weights="DEFAULT")
-    model.classifier[1] = nn.Linear(model.classifier[1].in_features, 5)
+    model.classifier[1] = nn.Linear(model.classifier[1].in_features, 4)
     model.train()
 
     criterion = nn.CrossEntropyLoss()
@@ -62,8 +60,8 @@ def train() -> None:
         print(f"Epoch {epoch + 1} loss: {running_loss / len(loader):.4f}")
 
     os.makedirs("models", exist_ok=True)
-    torch.save(model, "models/skin_model.pth")
-    print("Saved model to models/skin_model.pth")
+    torch.save(model, "models/xray_model.pth")
+    print("Saved model to models/xray_model.pth")
 
 
 if __name__ == "__main__":
