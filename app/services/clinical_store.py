@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, inspect, text
 
 from app.services.api_keys import Base, SessionLocal, engine, init_api_key_store
 
@@ -11,7 +11,8 @@ from app.services.api_keys import Base, SessionLocal, engine, init_api_key_store
 class Patient(Base):
     __tablename__ = "patients"
     id = Column(Integer, primary_key=True)
-    patient_ref = Column(String(80), nullable=False, unique=True, index=True)
+    organization_id = Column(Integer, nullable=True, index=True)
+    patient_ref = Column(String(80), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     date_of_birth = Column(String(20), nullable=True)
     sex = Column(String(30), nullable=True)
@@ -23,6 +24,7 @@ class Patient(Base):
 class ClinicalAnalysis(Base):
     __tablename__ = "clinical_analyses"
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, nullable=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=True)
     image_type = Column(String(30), nullable=False)
     source_filename = Column(String(255), nullable=True)
@@ -42,6 +44,7 @@ class ClinicalAnalysis(Base):
 class ClinicalReport(Base):
     __tablename__ = "clinical_reports"
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, nullable=True, index=True)
     analysis_id = Column(Integer, ForeignKey("clinical_analyses.id"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     impression = Column(Text, nullable=False)
@@ -57,6 +60,7 @@ class ClinicalReport(Base):
 class ResearchRecord(Base):
     __tablename__ = "research_records"
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, nullable=True, index=True)
     title = Column(String(255), nullable=False)
     dataset = Column(String(255), nullable=True)
     hypothesis = Column(Text, nullable=True)
@@ -71,6 +75,7 @@ class ResearchRecord(Base):
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, nullable=True, index=True)
     event_type = Column(String(80), nullable=False, index=True)
     entity_type = Column(String(80), nullable=False)
     entity_id = Column(String(80), nullable=True)
@@ -83,48 +88,77 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _add_missing_org_columns() -> None:
+    tables = ["patients", "clinical_analyses", "clinical_reports", "research_records", "audit_events"]
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table in tables:
+            if table not in existing_tables:
+                continue
+            columns = {c["name"] for c in inspector.get_columns(table)}
+            if "organization_id" not in columns:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN organization_id INTEGER"))
+            conn.execute(text(
+                f"CREATE INDEX IF NOT EXISTS ix_{table}_organization_id "
+                f"ON {table} (organization_id)"
+            ))
+
+
 def init_clinical_store() -> None:
     init_api_key_store()
     Base.metadata.create_all(bind=engine)
+    _add_missing_org_columns()
 
 
-def audit(event_type: str, entity_type: str, entity_id: int | str | None, actor: str, details: str = "") -> None:
+def audit(
+    event_type: str,
+    entity_type: str,
+    entity_id: int | str | None,
+    actor: str,
+    details: str = "",
+    organization_id: int | None = None,
+) -> None:
     init_clinical_store()
     with SessionLocal() as db:
-        db.add(AuditEvent(event_type=event_type, entity_type=entity_type,
-                          entity_id=str(entity_id) if entity_id is not None else None,
-                          actor=actor, details=details, created_at=now()))
+        db.add(AuditEvent(
+            organization_id=organization_id,
+            event_type=event_type,
+            entity_type=entity_type,
+            entity_id=str(entity_id) if entity_id is not None else None,
+            actor=actor,
+            details=details,
+            created_at=now(),
+        ))
         db.commit()
 
 
 def patient_dict(p: Patient) -> dict[str, Any]:
-    return {"id": p.id, "patient_ref": p.patient_ref, "name": p.name,
-            "date_of_birth": p.date_of_birth, "sex": p.sex, "notes": p.notes,
+    return {"id": p.id, "organization_id": p.organization_id, "patient_ref": p.patient_ref,
+            "name": p.name, "date_of_birth": p.date_of_birth, "sex": p.sex, "notes": p.notes,
             "created_at": p.created_at.isoformat(), "updated_at": p.updated_at.isoformat()}
 
 
 def analysis_dict(a: ClinicalAnalysis) -> dict[str, Any]:
-    return {"id": a.id, "patient_id": a.patient_id, "image_type": a.image_type,
-            "source_filename": a.source_filename, "finding": a.finding,
-            "confidence": a.confidence, "needs_review": a.needs_review,
-            "model_name": a.model_name, "model_source": a.model_source,
-            "research_status": a.research_status, "status": a.status,
+    return {"id": a.id, "organization_id": a.organization_id, "patient_id": a.patient_id,
+            "image_type": a.image_type, "source_filename": a.source_filename, "finding": a.finding,
+            "confidence": a.confidence, "needs_review": a.needs_review, "model_name": a.model_name,
+            "model_source": a.model_source, "research_status": a.research_status, "status": a.status,
             "reviewer": a.reviewer, "reviewer_note": a.reviewer_note,
             "reviewed_at": a.reviewed_at.isoformat() if a.reviewed_at else None,
             "created_at": a.created_at.isoformat()}
 
 
 def report_dict(r: ClinicalReport) -> dict[str, Any]:
-    return {"id": r.id, "analysis_id": r.analysis_id, "title": r.title,
-            "impression": r.impression, "findings": r.findings, "status": r.status,
+    return {"id": r.id, "organization_id": r.organization_id, "analysis_id": r.analysis_id,
+            "title": r.title, "impression": r.impression, "findings": r.findings, "status": r.status,
             "author": r.author, "signed_at": r.signed_at.isoformat() if r.signed_at else None,
             "signed_by": r.signed_by, "created_at": r.created_at.isoformat(),
             "updated_at": r.updated_at.isoformat()}
 
 
 def research_dict(r: ResearchRecord) -> dict[str, Any]:
-    return {"id": r.id, "title": r.title, "dataset": r.dataset,
-            "hypothesis": r.hypothesis, "model_name": r.model_name,
-            "metric_summary": r.metric_summary, "status": r.status,
-            "owner": r.owner, "created_at": r.created_at.isoformat(),
-            "updated_at": r.updated_at.isoformat()}
+    return {"id": r.id, "organization_id": r.organization_id, "title": r.title,
+            "dataset": r.dataset, "hypothesis": r.hypothesis, "model_name": r.model_name,
+            "metric_summary": r.metric_summary, "status": r.status, "owner": r.owner,
+            "created_at": r.created_at.isoformat(), "updated_at": r.updated_at.isoformat()}
