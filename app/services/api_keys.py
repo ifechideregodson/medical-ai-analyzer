@@ -4,6 +4,8 @@ import hashlib
 import secrets
 from datetime import datetime, timezone
 
+from fastapi import HTTPException, status
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -113,7 +115,7 @@ def rate_limit_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
-def check_rate_limit(raw_key: str, limit: int = 60) -> None:
+def check_rate_limit(raw_key: str, limit: int | None = None) -> None:
     """Best-effort per-key minute limiter. API remains available if Redis is temporarily unavailable."""
     try:
         import redis
