@@ -59,7 +59,7 @@ export default function Home() {
       form.append("image_type", mode);\n      const response = await fetch("/api/analyze", { method: "POST", body: form });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? "Analysis failed");
-      setResult(data.result ?? data.prediction);
+      const finalResult = data.result ?? data.prediction; setResult(finalResult);\n      const admin = sessionStorage.getItem("medai_admin_secret");\n      if (admin) {\n        const saved = await fetch(`${API_URL}/api/v1/clinical/analyses`, { method:"POST", headers:{"Content-Type":"application/json","X-Admin-Key":admin}, body:JSON.stringify({image_type:mode,source_filename:file.name,finding:finalResult.label,confidence:finalResult.confidence,needs_review:finalResult.needs_review,model_name:finalResult.model_name,model_source:finalResult.model_source,research_status:finalResult.research_status ?? "research_only_not_clinically_validated"}) });\n        if (!saved.ok) { const sd = await saved.json(); setError(sd.detail ?? "AI result was returned but could not be saved"); }\n      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to reach the analysis service");
     } finally {
@@ -73,8 +73,8 @@ export default function Home() {
         <div className="brand"><div className="brandMark"><Brain size={21}/></div><div><strong>MedAI</strong><span>Clinical Analyzer</span></div></div>
         <div className="navLabel">WORKSPACE</div>
         {[
-          ["Dashboard", LayoutDashboard], ["Analyze Image", ImageIcon], ["Reports", FileText],
-          ["Research", Microscope], ["Models", Activity], ["Analytics", BarChart3], ["API Keys", KeyRound]
+          ["Dashboard", LayoutDashboard], ["Patients", Users], ["Analyze Image", ImageIcon], ["Reports", FileText],
+          ["Research", Microscope], ["Models", Activity], ["Analytics", BarChart3], ["Audit Trail", History], ["API Keys", KeyRound]
         ].map(([name, Icon]) => (
           <button key={name as string} className={`navItem ${page === name ? "active" : ""}`} onClick={() => setPage(name as string)}>
             <Icon size={18}/><span>{name as string}</span>
