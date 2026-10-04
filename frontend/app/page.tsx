@@ -56,7 +56,7 @@ export default function Home() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const response = await fetch(`${API_URL}/api/v1/predict?image_type=${mode}`, { method: "POST", body: form });
+      form.append("image_type", mode);\n      const response = await fetch("/api/analyze", { method: "POST", body: form });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? "Analysis failed");
       setResult(data.result ?? data.prediction);
@@ -205,5 +205,43 @@ function APIKeys() {
         {!keys.length ? <div className="empty"><KeyRound size={34}/><b>No keys loaded</b><span>Enter the administrator secret and load the key list.</span></div> : keys.map(k=><div className="step" key={k.id}><span>{k.is_active ? "✓" : "×"}</span><div><b>{k.name}</b><small>{k.owner} · {k.key_prefix} · {k.is_active ? "Active" : "Revoked"}</small></div>{k.is_active && <button className="secondary" onClick={()=>revoke(k.id)}>Revoke</button>}</div>)}
       </div>
     </div>
+  </section>;
+}
+
+
+function APIDocs() {
+  return <section>
+    <div className="hero"><div><span className="pill">DEVELOPER API</span><h2>Connect your application to MedAI.</h2><p>Use a generated API key to submit X-ray or skin images to the inference API. Keep keys on your server and never expose them in browser code.</p></div><KeyRound size={72}/></div>
+    <div className="docsGrid">
+      <div className="panel">
+        <div className="panelHead"><div><b>Authentication</b><span>Every inference request requires X-API-Key.</span></div><ShieldCheck size={20}/></div>
+        <p className="docText">Generate a key from the API Keys workspace. The complete secret is shown only once. Store it in your server environment as a secret.</p>
+        <pre className="codeBlock"><code>{`X-API-Key: medai_your_secret_key`}</code></pre>
+      </div>
+      <div className="panel">
+        <div className="panelHead"><div><b>POST /api/v1/predict</b><span>Analyze an X-ray or skin image.</span></div><Brain size={20}/></div>
+        <pre className="codeBlock"><code>{`curl -X POST \\\n  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=xray" \\\n  -H "X-API-Key: medai_your_secret_key" \\\n  -F "file=@xray.jpg"`}</code></pre>
+      </div>
+      <div className="panel">
+        <div className="panelHead"><div><b>Skin example</b><span>Use image_type=skin for dermatology images.</span></div></div>
+        <pre className="codeBlock"><code>{`curl -X POST \\\n  "https://medical-ai-api.onrender.com/api/v1/predict?image_type=skin" \\\n  -H "X-API-Key: medai_your_secret_key" \\\n  -F "file=@skin.jpg"`}</code></pre>
+      </div>
+      <div className="panel">
+        <div className="panelHead"><div><b>Response</b><span>Finding, scores, model provenance and review status.</span></div></div>
+        <pre className="codeBlock"><code>{`{
+  "status": "ok",
+  "image_type": "xray",
+  "result": {
+    "label": "pneumonia",
+    "confidence": 0.91,
+    "needs_review": false,
+    "model_name": "...",
+    "model_source": "...",
+    "research_status": "research_only_not_clinically_validated"
+  }
+}`}</code></pre>
+      </div>
+    </div>
+    <div className="notice"><b>Important:</b> MedAI's current models are research/decision-support models and are not clinically validated for standalone diagnosis. Integrations must keep a qualified clinician in the review workflow.</div>
   </section>;
 }
