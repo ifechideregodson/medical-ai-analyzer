@@ -16,9 +16,8 @@ services:
       pip install -r requirements.txt
     startCommand: gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
     healthCheckPath: /health
-    healthCheckInterval: 30
     autoDeploy: true
-    maxInstances: 1
+    numInstances: 1
     envVars:
       - key: ENV
         value: production
@@ -77,6 +76,7 @@ services:
     startCommand: cd frontend && npm start
     healthCheckPath: /
     autoDeploy: true
+    numInstances: 1
     envVars:
       - key: NODE_VERSION
         value: "20"
