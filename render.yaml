@@ -82,3 +82,7 @@ services:
         value: "20"
       - key: NEXT_PUBLIC_API_URL
         value: https://medical-ai-api.onrender.com
+      # Create a standard MedAI API key in the API Keys workspace and paste it here.
+      # This stays server-side and is never exposed to the browser.
+      - key: MEDAI_WEB_API_KEY
+        sync: false
