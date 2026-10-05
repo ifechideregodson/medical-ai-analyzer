@@ -1,19 +1,4 @@
 services:
-  - type: pserv
-    name: medical-ai-postgres
-    runtime: postgresql
-    plan: free
-    region: oregon
-    ipAllowList: []
-    databaseName: medical_ai
-    user: medical_ai_user
-    preDeployCommand: ""
-    postDeployCommand: ""
-    environmentSlug: postgres
-    envVars:
-      - key: POSTGRES_PASSWORD
-        generateValue: true
-
   - type: redis
     name: medical-ai-redis
     plan: free
@@ -97,3 +82,11 @@ services:
         value: "20"
       - key: NEXT_PUBLIC_API_URL
         value: https://medical-ai-api.onrender.com
+
+databases:
+  - name: medical-ai-postgres
+    plan: free
+    region: oregon
+    databaseName: medical_ai
+    user: medical_ai_user
+    ipAllowList: []
