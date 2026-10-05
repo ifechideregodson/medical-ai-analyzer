@@ -85,3 +85,5 @@ services:
       # Server-side API key used by the Next.js analyze proxy. Set this in Render.
       - key: MEDAI_WEB_API_KEY
         sync: false
+      - key: MEDAI_API_URL
+        value: https://medical-ai-api.onrender.com
