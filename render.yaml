@@ -44,6 +44,9 @@ services:
         value: INFO
       - key: API_KEY_ADMIN_SECRET
         generateValue: true
+      # Render generates this once and shares it securely with the web service below.
+      - key: MEDAI_WEB_API_KEY
+        generateValue: true
       - key: MODEL_GATEWAY_KEY_PREFIX
         value: medai_gw
       - key: XRAY_MODEL_PATH
@@ -80,8 +83,11 @@ services:
         value: "20"
       - key: NEXT_PUBLIC_API_URL
         value: https://medical-ai-api-49wc.onrender.com
-      # Server-side API key used by the Next.js analyze proxy. Set this in Render.
+      # Read the generated internal key from the API service; no manual secret entry needed.
       - key: MEDAI_WEB_API_KEY
-        sync: false
+        fromService:
+          type: web
+          name: medical-ai-api
+          envVar: MEDAI_WEB_API_KEY
       - key: MEDAI_API_URL
         value: https://medical-ai-api-49wc.onrender.com
