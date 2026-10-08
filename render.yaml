@@ -88,6 +88,6 @@ services:
         fromService:
           type: web
           name: medical-ai-api
-          envVar: MEDAI_WEB_API_KEY
+          envVarKey: MEDAI_WEB_API_KEY
       - key: MEDAI_API_URL
         value: https://medical-ai-api-49wc.onrender.com
