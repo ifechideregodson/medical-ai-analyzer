@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 from datetime import datetime, timezone
 
@@ -97,6 +98,13 @@ def revoke_api_key(key_id: int) -> bool:
 def authenticate_api_key(raw_key: str | None) -> bool:
     if not raw_key:
         return False
+
+    # Render Blueprint provisions one private key shared only between the web
+    # and API services. This avoids a manual key-creation step after deployment.
+    configured_web_key = os.getenv("MEDAI_WEB_API_KEY", "")
+    if configured_web_key and secrets.compare_digest(raw_key, configured_web_key):
+        return True
+
     init_api_key_store()
     with SessionLocal() as db:
         item = db.query(APIKey).filter(
