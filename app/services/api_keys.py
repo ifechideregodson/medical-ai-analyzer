@@ -133,8 +133,6 @@ def check_rate_limit(raw_key: str, limit: int | None = None) -> None:
         if count == 1:
             client.expire(bucket, 60)
         if count > limit:
-            from fastapi import HTTPException
-            from fastapi import status
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"API rate limit exceeded. Maximum {limit} requests per minute.",
