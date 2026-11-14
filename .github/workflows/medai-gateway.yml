@@ -29,4 +29,5 @@ jobs:
       - name: Run gateway contract tests
         env:
           MEDAI_WEB_API_KEY: ci-test-secret
-        run: pytest -q tests/test_medai_gateway.py
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest -q tests/test_medai_gateway.py
