@@ -48,6 +48,7 @@ def test_medai_gateway_returns_needs_review_for_research_model(monkeypatch, tmp_
         return {
             "label": "pneumonia",
             "confidence": 0.91,
+            "model_name": model_name,
             "research_status": "research_only_not_clinically_validated",
         }
 
