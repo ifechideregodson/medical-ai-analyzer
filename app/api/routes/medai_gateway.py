@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 from io import BytesIO
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile, status
@@ -14,6 +15,7 @@ from app.services.model_registry import model_registry
 router = APIRouter(prefix="/api/v1/inference", tags=["MedAI model gateway"])
 inference_service = InferenceService()
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
+MAX_IMAGE_PIXELS = 40_000_000
 SUPPORTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
@@ -44,6 +46,9 @@ async def run_medai_inference(
     """Compatibility contract consumed by MedAI's private model gateway."""
     _authenticate(authorization)
 
+    if model_name in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", model_name):
+        raise HTTPException(status_code=400, detail="Invalid model name")
+
     content_type = (file.content_type or "").lower()
     if content_type not in SUPPORTED_IMAGE_TYPES:
         raise HTTPException(status_code=415, detail="Only JPEG, PNG, and WebP images are supported")
@@ -57,7 +62,10 @@ async def run_medai_inference(
         raise HTTPException(status_code=400, detail="request_hash does not match uploaded image")
 
     try:
-        image = Image.open(BytesIO(raw)).convert("RGB")
+        with Image.open(BytesIO(raw)) as decoded:
+            if decoded.width * decoded.height > MAX_IMAGE_PIXELS:
+                raise HTTPException(status_code=413, detail="Image dimensions exceed the 40 megapixel limit")
+            image = decoded.convert("RGB")
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid supported image") from exc
 
@@ -89,7 +97,7 @@ async def run_medai_inference(
         raise HTTPException(status_code=409, detail="Registered model has an unsupported image type")
 
     try:
-        prediction = inference_service.predict(image, image_type)
+        prediction = inference_service.predict(image, image_type, model_name=model_name)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail="Active model artifact is unavailable") from exc
     except Exception as exc:
