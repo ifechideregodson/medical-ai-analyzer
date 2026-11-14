@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision import transforms
 
 from app.config import settings
-from app.services.model_registry import ensure_model_exists, get_model_config
+from app.services.model_registry import ModelConfig, ensure_model_exists, get_model_config, model_registry
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -34,8 +34,29 @@ class InferenceService:
         )(tensor)
         return tensor.unsqueeze(0).to(DEVICE)
 
-    def predict(self, image: Image.Image, image_type: str) -> dict[str, Any]:
-        config = get_model_config(image_type)
+    def predict(
+        self,
+        image: Image.Image,
+        image_type: str,
+        model_name: str | None = None,
+    ) -> dict[str, Any]:
+        if model_name is None:
+            config = get_model_config(image_type)
+        else:
+            # Pin gateway inference to the exact model that was authenticated and version-checked.
+            metadata = model_registry.get_model(model_name)
+            if metadata.get("image_type") != image_type:
+                raise ValueError("Requested model image type does not match inference input")
+            if not metadata.get("is_active"):
+                raise ValueError("Requested model is no longer active")
+            config = ModelConfig(
+                model_name=metadata["model_name"],
+                image_type=metadata["image_type"],
+                model_path=metadata["file_path"],
+                labels=metadata["labels"],
+                source="registry",
+            )
+
         model = self._load_model(config.model_path, image_type)
         tensor = self._preprocess(image)
 
