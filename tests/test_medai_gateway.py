@@ -123,4 +123,3 @@ def test_medai_gateway_rejects_oversized_image_dimensions(monkeypatch):
         },
     )
     assert response.status_code == 413
-}
