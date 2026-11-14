@@ -103,6 +103,20 @@ async def run_medai_inference(
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Model inference failed") from exc
 
+    if prediction.get("model_name") != model_name:
+        raise HTTPException(status_code=502, detail="Inference model identity does not match requested model")
+
+    # Detect an artifact replacement between fingerprint verification and model loading.
+    try:
+        final_digest = hashlib.sha256()
+        with open(metadata["file_path"], "rb") as artifact:
+            for chunk in iter(lambda: artifact.read(1024 * 1024), b""):
+                final_digest.update(chunk)
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Active model artifact cannot be read") from exc
+    if not hmac.compare_digest(actual_version, f"sha256:{final_digest.hexdigest()}"):
+        raise HTTPException(status_code=409, detail="Model artifact changed during inference")
+
     # Analyzer models are currently research-only. Never mark their output as clinically complete.
     return {
         "status": "NEEDS_REVIEW",
