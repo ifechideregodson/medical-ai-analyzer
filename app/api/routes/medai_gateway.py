@@ -66,6 +66,8 @@ async def run_medai_inference(
             if decoded.width * decoded.height > MAX_IMAGE_PIXELS:
                 raise HTTPException(status_code=413, detail="Image dimensions exceed the 40 megapixel limit")
             image = decoded.convert("RGB")
+    except Image.DecompressionBombError as exc:
+        raise HTTPException(status_code=413, detail="Image dimensions exceed the supported limit") from exc
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid supported image") from exc
 
