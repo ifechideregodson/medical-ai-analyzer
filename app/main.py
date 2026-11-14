@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import api_keys, model_gateway_keys, predict, training, models, clinical, auth
+from app.api.routes import api_keys, model_gateway_keys, predict, training, models, clinical, auth, medai_gateway
 from app.config import settings
 
 app = FastAPI(
@@ -19,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(predict.router)
+app.include_router(medai_gateway.router)
 app.include_router(training.router)
 app.include_router(models.router)
 app.include_router(api_keys.router)
